@@ -105,6 +105,19 @@ export default function PaymentsPage() {
               .map((th) => th.hours)
               .filter(Boolean)
               .sort((a, b) => a.date.localeCompare(b.date));
+            const schoolNames = Array.from(
+              new Set(
+                hourEntries
+                  .map((h) => h.school?.name)
+                  .filter(Boolean) as string[]
+              )
+            );
+            const schoolLabel =
+              schoolNames.length === 0
+                ? null
+                : schoolNames.length === 1
+                ? schoolNames[0]
+                : "Multiple schools";
 
             return (
               <div key={ts.id} className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
@@ -122,6 +135,9 @@ export default function PaymentsPage() {
 
                   <div className="flex-1 flex flex-wrap items-center gap-x-6 gap-y-1 text-[13px]">
                     <span className="text-slate-900 font-semibold">{ts.profile?.name || "Unknown"}</span>
+                    {schoolLabel && (
+                      <span className="text-slate-600">{schoolLabel}</span>
+                    )}
                     <span className="text-slate-500 tabular-nums">
                       {new Date(ts.period_start + "T00:00:00").toLocaleDateString()} &mdash; {new Date(ts.period_end + "T00:00:00").toLocaleDateString()}
                     </span>

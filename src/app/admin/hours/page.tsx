@@ -18,6 +18,7 @@ export default function HoursPage() {
   const [showTimesheetForm, setShowTimesheetForm] = useState(false);
   const [tsDateFrom, setTsDateFrom] = useState("");
   const [tsDateTo, setTsDateTo] = useState("");
+  const [tsSchoolId, setTsSchoolId] = useState("");
   const [submittingTs, setSubmittingTs] = useState(false);
 
   useEffect(() => {
@@ -105,20 +106,34 @@ export default function HoursPage() {
               <input type="date" value={tsDateTo} onChange={(e) => setTsDateTo(e.target.value)}
                 className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white outline-none transition-all" />
             </div>
+            <div>
+              <label className="block text-[12px] font-medium text-slate-500 mb-1">School</label>
+              <select value={tsSchoolId} onChange={(e) => setTsSchoolId(e.target.value)}
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white outline-none transition-all cursor-pointer">
+                <option value="">All Schools</option>
+                {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
             <button disabled={!tsDateFrom || !tsDateTo || submittingTs} onClick={async () => {
               setSubmittingTs(true);
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) { setSubmittingTs(false); return; }
 
-              // Get hours in range for this user
-              const { data: rangeHours } = await supabase.from("hours")
+              // Get hours in range for this user, optionally filtered by school
+              let hoursQuery = supabase.from("hours")
                 .select("id, hours")
                 .eq("user_id", user.id)
                 .gte("date", tsDateFrom)
                 .lte("date", tsDateTo);
+              if (tsSchoolId) hoursQuery = hoursQuery.eq("school_id", tsSchoolId);
+              const { data: rangeHours } = await hoursQuery;
 
               if (!rangeHours || rangeHours.length === 0) {
-                alert("No hours found in this date range.");
+                alert(
+                  tsSchoolId
+                    ? "No hours found in this date range for the selected school."
+                    : "No hours found in this date range."
+                );
                 setSubmittingTs(false);
                 return;
               }
@@ -156,6 +171,7 @@ export default function HoursPage() {
               setSubmittingTs(false);
               setTsDateFrom("");
               setTsDateTo("");
+              setTsSchoolId("");
             }}
               className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-50 cursor-pointer">
               {submittingTs ? "Submitting..." : "Submit"}

@@ -43,6 +43,15 @@ export default function PrintableTimesheet({ timesheet, hours }: Props) {
     0;
   const totalHours = Number(timesheet.total_hours) || 0;
   const totalPay = totalHours * rate;
+  const schoolNames = Array.from(
+    new Set(hours.map((h) => h.school?.name).filter(Boolean) as string[])
+  );
+  const schoolLabel =
+    schoolNames.length === 0
+      ? null
+      : schoolNames.length === 1
+      ? schoolNames[0]
+      : "Multiple schools";
 
   const fmtDate = (iso: string) =>
     new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
@@ -144,6 +153,14 @@ export default function PrintableTimesheet({ timesheet, hours }: Props) {
               <p className="text-sm text-charcoal-light/70 mt-0.5 tabular-nums">
                 ${rate.toFixed(2)}/hr
               </p>
+            )}
+            {schoolLabel && (
+              <>
+                <p className="text-[10px] text-sage-dark uppercase tracking-widest font-semibold mt-3 mb-1">
+                  School
+                </p>
+                <p className="text-sm text-charcoal">{schoolLabel}</p>
+              </>
             )}
           </div>
           <div className="text-right space-y-3">
