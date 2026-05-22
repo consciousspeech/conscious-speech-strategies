@@ -20,6 +20,16 @@ export default function HoursPage() {
   const [tsDateTo, setTsDateTo] = useState("");
   const [tsSchoolId, setTsSchoolId] = useState("");
   const [submittingTs, setSubmittingTs] = useState(false);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+
+  function toggleDate(date: string) {
+    setExpandedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -197,35 +207,88 @@ export default function HoursPage() {
 
       <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
         {hours.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-left bg-slate-50/50">
-                  <th className="px-5 py-3 text-slate-500 font-medium">Date</th>
-                  {isAdmin && <th className="px-5 py-3 text-slate-500 font-medium">Staff</th>}
-                  <th className="px-5 py-3 text-slate-500 font-medium">School</th>
-                  <th className="px-5 py-3 text-slate-500 font-medium">Hours</th>
-                  <th className="px-5 py-3 text-slate-500 font-medium">Category</th>
-                  <th className="px-5 py-3 text-slate-500 font-medium">Description</th>
-                  <th className="px-5 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {hours.map((h) => (
-                  <tr key={h.id as string} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-5 py-3 text-slate-900 tabular-nums">{new Date((h.date as string) + "T00:00:00").toLocaleDateString()}</td>
-                    {isAdmin && <td className="px-5 py-3 text-slate-600">{(h.profile as Record<string, unknown>)?.name as string}</td>}
-                    <td className="px-5 py-3 text-slate-600">{(h.school as Record<string, unknown>)?.name as string}</td>
-                    <td className="px-5 py-3 text-slate-900 font-semibold tabular-nums">{Number(h.hours).toFixed(2)}</td>
-                    <td className="px-5 py-3 text-slate-400">{(h.category as string) || "\u2014"}</td>
-                    <td className="px-5 py-3 text-slate-400">{(h.description as string) || "\u2014"}</td>
-                    <td className="px-5 py-3">
-                      <Link href={`/admin/hours/${h.id}/edit`} className="text-teal-600 hover:text-teal-700 font-medium transition-colors">Edit</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="divide-y divide-slate-100">
+            {Array.from(
+              hours.reduce((map, h) => {
+                const date = h.date as string;
+                if (!map.has(date)) map.set(date, []);
+                map.get(date)!.push(h);
+                return map;
+              }, new Map<string, Record<string, unknown>[]>())
+            ).map(([date, entries]) => {
+              const dayTotal = entries.reduce((sum, e) => sum + Number(e.hours), 0);
+              const schoolTotals = new Map<string, number>();
+              for (const e of entries) {
+                const name = (e.school as Record<string, unknown> | null)?.name as string | undefined;
+                const key = name || "Unassigned";
+                schoolTotals.set(key, (schoolTotals.get(key) ?? 0) + Number(e.hours));
+              }
+              const isOpen = expandedDates.has(date);
+              const dateObj = new Date(date + "T00:00:00");
+              const dayName = dateObj.toLocaleDateString(undefined, { weekday: "short" });
+              return (
+                <div key={date}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleDate(date)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleDate(date); } }}
+                    className="w-full px-5 py-3 flex flex-wrap items-center gap-x-5 gap-y-1 hover:bg-slate-50/50 transition-colors cursor-pointer text-[13px]"
+                  >
+                    <svg className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="text-slate-900 font-semibold tabular-nums w-28">{dateObj.toLocaleDateString()}</span>
+                    <span className="text-slate-400 w-12">{dayName}</span>
+                    <span className="text-slate-900 font-semibold tabular-nums w-24">{dayTotal.toFixed(2)} hrs</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from(schoolTotals).map(([name, h]) => (
+                        <span key={name} className="inline-flex items-center gap-1 px-2 py-0.5 bg-sage/10 text-sage-dark rounded-full text-[11px] font-medium">
+                          {name} <span className="tabular-nums">{h.toFixed(2)}</span>
+                        </span>
+                      ))}
+                    </div>
+                    <span className="ml-auto text-slate-400 text-[12px]">
+                      {entries.length} {entries.length === 1 ? "entry" : "entries"}
+                    </span>
+                  </div>
+                  {isOpen && (
+                    <div className="bg-slate-50/30 border-t border-slate-100">
+                      <table className="w-full text-[13px]">
+                        <thead>
+                          <tr className="border-b border-slate-100 text-left">
+                            {isAdmin && <th className="px-5 py-2 pl-14 text-slate-400 font-medium text-[11px] uppercase tracking-wide">Staff</th>}
+                            <th className={`px-5 py-2 ${isAdmin ? "" : "pl-14"} text-slate-400 font-medium text-[11px] uppercase tracking-wide`}>School</th>
+                            <th className="px-5 py-2 text-slate-400 font-medium text-[11px] uppercase tracking-wide">Time</th>
+                            <th className="px-5 py-2 text-slate-400 font-medium text-[11px] uppercase tracking-wide">Hours</th>
+                            <th className="px-5 py-2 text-slate-400 font-medium text-[11px] uppercase tracking-wide">Category</th>
+                            <th className="px-5 py-2 text-slate-400 font-medium text-[11px] uppercase tracking-wide">Description</th>
+                            <th className="px-5 py-2"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {entries.map((h) => (
+                            <tr key={h.id as string} className="hover:bg-white transition-colors">
+                              {isAdmin && <td className="px-5 py-2 pl-14 text-slate-600">{(h.profile as Record<string, unknown>)?.name as string}</td>}
+                              <td className={`px-5 py-2 ${isAdmin ? "" : "pl-14"} text-slate-600`}>{(h.school as Record<string, unknown>)?.name as string || "\u2014"}</td>
+                              <td className="px-5 py-2 text-slate-500 tabular-nums">
+                                {h.time_in && h.time_out ? `${(h.time_in as string).slice(0,5)} \u2013 ${(h.time_out as string).slice(0,5)}` : "\u2014"}
+                              </td>
+                              <td className="px-5 py-2 text-slate-900 font-semibold tabular-nums">{Number(h.hours).toFixed(2)}</td>
+                              <td className="px-5 py-2 text-slate-400">{(h.category as string) || "\u2014"}</td>
+                              <td className="px-5 py-2 text-slate-400 max-w-xs truncate">{(h.description as string) || "\u2014"}</td>
+                              <td className="px-5 py-2">
+                                <Link href={`/admin/hours/${h.id}/edit`} className="text-teal-600 hover:text-teal-700 font-medium transition-colors">Edit</Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="px-5 py-10 text-center text-slate-400 text-sm">No hours logged yet.</p>
