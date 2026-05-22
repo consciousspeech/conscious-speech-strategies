@@ -195,7 +195,7 @@ export default function NewInvoicePage() {
                     <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3 text-slate-900 tabular-nums">{new Date(h.date).toLocaleDateString("en-US", { timeZone: "UTC" })}</td>
                       <td className="px-5 py-3 text-slate-600">{h.profile?.name || "\u2014"}</td>
-                      <td className="px-5 py-3 text-slate-900 tabular-nums">{h.hours.toFixed(1)}</td>
+                      <td className="px-5 py-3 text-slate-900 tabular-nums">{h.hours.toFixed(2)}</td>
                       <td className="px-5 py-3">
                         <input type="number" step="0.01" value={h.rate}
                           onChange={(e) => updateRate(h.id, parseFloat(e.target.value) || 0)}
@@ -208,7 +208,7 @@ export default function NewInvoicePage() {
                 <tfoot>
                   <tr className="border-t-2 border-slate-200 bg-slate-50/30">
                     <td colSpan={2} className="px-5 py-3.5 text-right font-semibold text-slate-900">Totals:</td>
-                    <td className="px-5 py-3.5 font-bold text-slate-900 tabular-nums">{hourEntries.reduce((sum, h) => sum + h.hours, 0).toFixed(1)}</td>
+                    <td className="px-5 py-3.5 font-bold text-slate-900 tabular-nums">{hourEntries.reduce((sum, h) => sum + h.hours, 0).toFixed(2)}</td>
                     <td></td>
                     <td className="px-5 py-3.5 font-bold text-slate-900 text-base tabular-nums">${totalAmount.toFixed(2)}</td>
                   </tr>

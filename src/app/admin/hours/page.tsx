@@ -151,7 +151,7 @@ export default function HoursPage() {
                 return;
               }
 
-              alert(`Timesheet submitted! ${rangeHours.length} entries, ${total.toFixed(1)} total hours.`);
+              alert(`Timesheet submitted! ${rangeHours.length} entries, ${total.toFixed(2)} total hours.`);
               setShowTimesheetForm(false);
               setSubmittingTs(false);
               setTsDateFrom("");
@@ -180,7 +180,7 @@ export default function HoursPage() {
         <input type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
           className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white outline-none transition-all" />
         <div className="ml-auto bg-teal-50 px-4 py-2.5 rounded-lg border border-teal-100">
-          <span className="text-[13px] text-teal-700 font-semibold tabular-nums">Total: {totalHours.toFixed(1)} hrs</span>
+          <span className="text-[13px] text-teal-700 font-semibold tabular-nums">Total: {totalHours.toFixed(2)} hrs</span>
         </div>
       </div>
 
@@ -205,7 +205,7 @@ export default function HoursPage() {
                     <td className="px-5 py-3 text-slate-900 tabular-nums">{new Date((h.date as string) + "T00:00:00").toLocaleDateString()}</td>
                     {isAdmin && <td className="px-5 py-3 text-slate-600">{(h.profile as Record<string, unknown>)?.name as string}</td>}
                     <td className="px-5 py-3 text-slate-600">{(h.school as Record<string, unknown>)?.name as string}</td>
-                    <td className="px-5 py-3 text-slate-900 font-semibold tabular-nums">{Number(h.hours).toFixed(1)}</td>
+                    <td className="px-5 py-3 text-slate-900 font-semibold tabular-nums">{Number(h.hours).toFixed(2)}</td>
                     <td className="px-5 py-3 text-slate-400">{(h.category as string) || "\u2014"}</td>
                     <td className="px-5 py-3 text-slate-400">{(h.description as string) || "\u2014"}</td>
                     <td className="px-5 py-3">

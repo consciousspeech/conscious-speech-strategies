@@ -217,7 +217,7 @@ export default function PrintableTimesheet({ timesheet, hours }: Props) {
                       {h.category || "—"}
                     </td>
                     <td className="px-2 py-2.5 text-charcoal font-medium text-right tabular-nums">
-                      {Number(h.hours).toFixed(1)}
+                      {Number(h.hours).toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -231,7 +231,7 @@ export default function PrintableTimesheet({ timesheet, hours }: Props) {
                     Total Hours:
                   </td>
                   <td className="pt-3 pb-1 text-right text-sm font-bold text-charcoal tabular-nums">
-                    {totalHours.toFixed(1)}
+                    {totalHours.toFixed(2)}
                   </td>
                 </tr>
                 {rate > 0 && (

@@ -345,7 +345,7 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                         ?.name as string) || "\u2014"}
                     </td>
                     <td className="px-0 py-2.5 text-charcoal tabular-nums">
-                      {Number(line.hours).toFixed(1)}
+                      {Number(line.hours).toFixed(2)}
                     </td>
                     <td className="px-0 py-2.5 text-charcoal-light tabular-nums">
                       ${Number(line.rate).toFixed(2)}/hr
@@ -366,7 +366,7 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                   Total Hours:
                 </td>
                 <td className="pt-3 pb-1 text-sm font-bold text-charcoal tabular-nums">
-                  {totalHours.toFixed(1)}
+                  {totalHours.toFixed(2)}
                 </td>
                 <td></td>
                 <td></td>

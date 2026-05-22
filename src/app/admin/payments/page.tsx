@@ -125,7 +125,7 @@ export default function PaymentsPage() {
                     <span className="text-slate-500 tabular-nums">
                       {new Date(ts.period_start + "T00:00:00").toLocaleDateString()} &mdash; {new Date(ts.period_end + "T00:00:00").toLocaleDateString()}
                     </span>
-                    <span className="text-slate-900 font-semibold tabular-nums">{ts.total_hours.toFixed(1)} hrs</span>
+                    <span className="text-slate-900 font-semibold tabular-nums">{ts.total_hours.toFixed(2)} hrs</span>
                     {internalRate > 0 && (
                       <span className="text-teal-700 font-semibold tabular-nums">${totalPay.toFixed(2)}</span>
                     )}
@@ -193,7 +193,7 @@ export default function PaymentsPage() {
                                     {new Date(date + "T00:00:00").toLocaleDateString()}
                                   </span>
                                   <span className="text-slate-900 font-semibold tabular-nums w-20">
-                                    {dayHours.toFixed(1)} hrs
+                                    {dayHours.toFixed(2)} hrs
                                   </span>
                                   <span className="text-slate-400 text-[12px]">
                                     {entries.length} {entries.length === 1 ? "entry" : "entries"}
@@ -223,7 +223,7 @@ export default function PaymentsPage() {
                                           <td className="px-5 py-2 text-slate-500 tabular-nums">
                                             {h.time_in && h.time_out ? `${h.time_in} \u2013 ${h.time_out}` : "\u2014"}
                                           </td>
-                                          <td className="px-5 py-2 text-slate-900 font-semibold tabular-nums">{Number(h.hours).toFixed(1)}</td>
+                                          <td className="px-5 py-2 text-slate-900 font-semibold tabular-nums">{Number(h.hours).toFixed(2)}</td>
                                           <td className="px-5 py-2 text-slate-600">{h.category || "\u2014"}</td>
                                           <td className="px-5 py-2 text-slate-500 max-w-xs truncate">{h.description || "\u2014"}</td>
                                         </tr>
@@ -237,7 +237,7 @@ export default function PaymentsPage() {
                         </div>
                         <div className="border-t border-slate-200 bg-slate-50/50 px-5 py-3 pl-14 flex items-center gap-4 text-[13px]">
                           <span className="text-slate-500 font-medium text-[12px] uppercase tracking-wide">Total</span>
-                          <span className="text-slate-900 font-bold tabular-nums">{ts.total_hours.toFixed(1)} hrs</span>
+                          <span className="text-slate-900 font-bold tabular-nums">{ts.total_hours.toFixed(2)} hrs</span>
                           {internalRate > 0 && (
                             <span className="text-teal-700 font-bold tabular-nums ml-auto">
                               ${totalPay.toFixed(2)}
