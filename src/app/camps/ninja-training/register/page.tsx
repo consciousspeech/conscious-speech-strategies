@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import CampWaiver, { WAIVER_VERSION, isWaiverValid } from "@/components/camps/CampWaiver";
 
-const steps = ["Child Info", "Background", "Contact", "Review"];
+const steps = ["Child Info", "Background", "Contact", "Waiver", "Review"];
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/9B63cx0iF6Poa9IfpuaAw01";
 
 export default function NinjaTrainingRegister() {
@@ -23,6 +24,8 @@ export default function NinjaTrainingRegister() {
     phone: "",
     email: "",
   });
+  const [waiverSignature, setWaiverSignature] = useState("");
+  const [waiverAgreed, setWaiverAgreed] = useState(false);
 
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -57,6 +60,10 @@ export default function NinjaTrainingRegister() {
         "Parent/Guardian Name": form.parentName,
         Phone: form.phone,
         Email: form.email,
+        "Waiver Version": WAIVER_VERSION,
+        "Waiver Signature": waiverSignature,
+        "Waiver Signed At": new Date().toISOString(),
+        "Waiver Agreed": waiverAgreed ? "Yes" : "No",
       })
     );
 
@@ -356,7 +363,7 @@ export default function NinjaTrainingRegister() {
                 disabled={!form.parentName || !form.phone || !form.email}
                 className="inline-flex items-center gap-2 rounded-full bg-olive px-8 py-3 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-olive/80 disabled:opacity-40"
               >
-                Review
+                Continue
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
@@ -365,8 +372,50 @@ export default function NinjaTrainingRegister() {
           </div>
         )}
 
-        {/* Step 4: Review */}
+        {/* Step 4: Waiver */}
         {step === 3 && (
+          <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
+            <h2 className="mb-6 font-serif text-2xl font-light text-charcoal">
+              Camp Waiver
+            </h2>
+            <CampWaiver
+              campName="Intuitive Ninja Training"
+              additionalRisks="ninja-style obstacle activities, climbing, jumping, balancing, and other movement-based play"
+              parentName={form.parentName}
+              signature={waiverSignature}
+              setSignature={setWaiverSignature}
+              agreed={waiverAgreed}
+              setAgreed={setWaiverAgreed}
+            />
+            <div className="mt-8 flex justify-between">
+              <button
+                onClick={back}
+                className="inline-flex items-center gap-2 font-body text-sm font-semibold text-charcoal-light transition-colors hover:text-olive"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                </svg>
+                Back
+              </button>
+              <button
+                onClick={next}
+                disabled={!isWaiverValid({ agreed: waiverAgreed, signature: waiverSignature, parentName: form.parentName })}
+                className="inline-flex items-center gap-2 rounded-full bg-olive px-8 py-3 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-olive/80 disabled:opacity-40"
+              >
+                Review
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+            </div>
+            <p className="mt-4 font-body text-[11px] text-charcoal-light/70">
+              Your typed signature must match the parent/guardian name from the previous step.
+            </p>
+          </div>
+        )}
+
+        {/* Step 5: Review */}
+        {step === 4 && (
           <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
             <h2 className="mb-6 font-serif text-2xl font-light text-charcoal">
               Review Your Information
@@ -390,6 +439,8 @@ export default function NinjaTrainingRegister() {
               <ReviewItem label="Parent/Guardian" value={form.parentName} />
               <ReviewItem label="Phone" value={form.phone} />
               <ReviewItem label="Email" value={form.email} />
+              <div className="my-4 h-px bg-olive/10" />
+              <ReviewItem label="Waiver Signed" value={waiverSignature ? `${waiverSignature} (${new Date().toLocaleDateString()})` : ""} />
             </div>
 
             <div className="mt-8 rounded-xl bg-olive/8 p-5">
