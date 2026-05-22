@@ -60,9 +60,22 @@ export default function PaymentsPage() {
       alert("Error unlinking hours: " + linkError.message);
       return;
     }
-    const { error } = await supabase.from("timesheets").delete().eq("id", id);
+    // Use .select() so we can see whether a row was actually deleted.
+    // RLS may silently return 0 rows when the policy denies the delete.
+    const { data: deleted, error } = await supabase
+      .from("timesheets")
+      .delete()
+      .eq("id", id)
+      .select("id");
     if (error) {
       alert("Error deleting timesheet: " + error.message);
+      return;
+    }
+    if (!deleted || deleted.length === 0) {
+      alert(
+        "Couldn't delete the timesheet — the database refused it (row-level security). " +
+          "Run the migration in supabase/migration-timesheet-admin-delete.sql in the Supabase SQL editor, then try again."
+      );
       return;
     }
     loadData();
