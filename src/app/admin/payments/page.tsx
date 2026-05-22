@@ -12,7 +12,7 @@ interface HourEntry {
   category: string | null;
   time_in: string | null;
   time_out: string | null;
-  school: { name: string } | null;
+  school: { id: string; name: string } | null;
 }
 
 interface TimesheetRow {
@@ -36,6 +36,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [printMenuOpen, setPrintMenuOpen] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -44,10 +45,27 @@ export default function PaymentsPage() {
   async function loadData() {
     const { data: ts } = await supabase
       .from("timesheets")
-      .select("*, profile:profiles!user_id(name, rate_per_hour, internal_rate), timesheet_hours(hours:hours!hours_id(id, date, hours, description, category, time_in, time_out, school:schools(name)))")
+      .select(
+        "*, profile:profiles!user_id(name, rate_per_hour, internal_rate), timesheet_hours(hours:hours!hours_id(id, date, hours, description, category, time_in, time_out, school:schools(id, name)))"
+      )
       .order("created_at", { ascending: false });
     if (ts) setTimesheets(ts as unknown as TimesheetRow[]);
     setLoading(false);
+  }
+
+  async function deleteTimesheet(id: string) {
+    if (!confirm("Delete this timesheet? Logged hours are kept; only the timesheet record is removed.")) return;
+    const { error: linkError } = await supabase.from("timesheet_hours").delete().eq("timesheet_id", id);
+    if (linkError) {
+      alert("Error unlinking hours: " + linkError.message);
+      return;
+    }
+    const { error } = await supabase.from("timesheets").delete().eq("id", id);
+    if (error) {
+      alert("Error deleting timesheet: " + error.message);
+      return;
+    }
+    loadData();
   }
 
   function toggleExpand(id: string) {
@@ -93,7 +111,7 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900 tracking-tight mb-6">Payments & Timesheets</h1>
+      <h1 className="text-xl font-semibold text-slate-900 tracking-tight mb-6">Payments &amp; Timesheets</h1>
 
       <div className="space-y-4">
         {timesheets.length > 0 ? (
@@ -105,25 +123,28 @@ export default function PaymentsPage() {
               .map((th) => th.hours)
               .filter(Boolean)
               .sort((a, b) => a.date.localeCompare(b.date));
-            const schoolNames = Array.from(
-              new Set(
-                hourEntries
-                  .map((h) => h.school?.name)
-                  .filter(Boolean) as string[]
-              )
-            );
+            const schoolMap = new Map<string, string>();
+            for (const h of hourEntries) {
+              if (h.school?.id && h.school?.name) schoolMap.set(h.school.id, h.school.name);
+            }
+            const schoolOptions = Array.from(schoolMap, ([id, name]) => ({ id, name }));
             const schoolLabel =
-              schoolNames.length === 0
+              schoolOptions.length === 0
                 ? null
-                : schoolNames.length === 1
-                ? schoolNames[0]
+                : schoolOptions.length === 1
+                ? schoolOptions[0].name
                 : "Multiple schools";
+            const printMenuId = `print-${ts.id}`;
+            const isPrintOpen = printMenuOpen === printMenuId;
 
             return (
               <div key={ts.id} className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
                 {/* Header row — clickable to expand */}
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleExpand(ts.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(ts.id); } }}
                   className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors cursor-pointer"
                 >
                   <svg
@@ -151,13 +172,48 @@ export default function PaymentsPage() {
                   </div>
 
                   <div className="flex gap-2 shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
-                    <Link
-                      href={`/admin/payments/${ts.id}`}
-                      target="_blank"
-                      className="px-2.5 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded text-[11px] font-medium transition-colors cursor-pointer"
-                    >
-                      Print
-                    </Link>
+                    {schoolOptions.length > 1 ? (
+                      <div className="relative">
+                        <button
+                          onClick={() => setPrintMenuOpen(isPrintOpen ? null : printMenuId)}
+                          className="px-2.5 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                        >
+                          Print ▾
+                        </button>
+                        {isPrintOpen && (
+                          <div className="absolute right-0 top-full mt-1 z-10 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[180px]">
+                            <Link
+                              href={`/admin/payments/${ts.id}`}
+                              target="_blank"
+                              onClick={() => setPrintMenuOpen(null)}
+                              className="block px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50"
+                            >
+                              All schools
+                            </Link>
+                            <div className="border-t border-slate-100 my-1" />
+                            {schoolOptions.map((s) => (
+                              <Link
+                                key={s.id}
+                                href={`/admin/payments/${ts.id}?school=${s.id}`}
+                                target="_blank"
+                                onClick={() => setPrintMenuOpen(null)}
+                                className="block px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50"
+                              >
+                                {s.name}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Link
+                        href={`/admin/payments/${ts.id}`}
+                        target="_blank"
+                        className="px-2.5 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Print
+                      </Link>
+                    )}
                     {ts.status === "submitted" && (
                       <>
                         <button onClick={() => updateStatus(ts.id, "approved")}
@@ -170,8 +226,15 @@ export default function PaymentsPage() {
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => deleteTimesheet(ts.id)}
+                      title="Delete timesheet"
+                      className="px-2 py-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      ✕
+                    </button>
                   </div>
-                </button>
+                </div>
 
                 {/* Expanded detail \u2014 grouped by date */}
                 {isOpen && (

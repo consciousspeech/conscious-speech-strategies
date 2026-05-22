@@ -4,10 +4,13 @@ import PrintableTimesheet from "./PrintableTimesheet";
 
 export default async function TimesheetPrintPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ school?: string }>;
 }) {
   const { id } = await params;
+  const { school: schoolFilter } = await searchParams;
   const supabase = await createServerSupabaseClient();
 
   const { data: timesheet } = await supabase
@@ -23,11 +26,11 @@ export default async function TimesheetPrintPage({
   const { data: timesheetHours } = await supabase
     .from("timesheet_hours")
     .select(
-      "hours:hours!hours_id(id, date, hours, description, category, time_in, time_out, school:schools(name))"
+      "hours:hours!hours_id(id, date, hours, description, category, time_in, time_out, school:schools(id, name))"
     )
     .eq("timesheet_id", id);
 
-  const hours = (timesheetHours || [])
+  let hours = (timesheetHours || [])
     .map((th: { hours: unknown }) => th.hours)
     .filter(Boolean) as {
     id: string;
@@ -37,10 +40,14 @@ export default async function TimesheetPrintPage({
     category: string | null;
     time_in: string | null;
     time_out: string | null;
-    school: { name: string } | null;
+    school: { id: string; name: string } | null;
   }[];
+
+  if (schoolFilter) {
+    hours = hours.filter((h) => h.school?.id === schoolFilter);
+  }
 
   hours.sort((a, b) => a.date.localeCompare(b.date));
 
-  return <PrintableTimesheet timesheet={timesheet} hours={hours} />;
+  return <PrintableTimesheet timesheet={timesheet} hours={hours} filteredBySchool={!!schoolFilter} />;
 }

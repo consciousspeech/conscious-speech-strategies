@@ -20,7 +20,6 @@ export default function HoursPage() {
   const [tsDateTo, setTsDateTo] = useState("");
   const [tsSchoolId, setTsSchoolId] = useState("");
   const [submittingTs, setSubmittingTs] = useState(false);
-
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -119,7 +118,6 @@ export default function HoursPage() {
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) { setSubmittingTs(false); return; }
 
-              // Get hours in range for this user, optionally filtered by school
               let hoursQuery = supabase.from("hours")
                 .select("id, hours")
                 .eq("user_id", user.id)
@@ -129,11 +127,9 @@ export default function HoursPage() {
               const { data: rangeHours } = await hoursQuery;
 
               if (!rangeHours || rangeHours.length === 0) {
-                alert(
-                  tsSchoolId
-                    ? "No hours found in this date range for the selected school."
-                    : "No hours found in this date range."
-                );
+                alert(tsSchoolId
+                  ? "No hours found in this date range for the selected school."
+                  : "No hours found in this date range.");
                 setSubmittingTs(false);
                 return;
               }
@@ -155,7 +151,6 @@ export default function HoursPage() {
                 return;
               }
 
-              // Link hours to timesheet
               const { error: linkError } = await supabase.from("timesheet_hours").insert(
                 rangeHours.map((h) => ({ timesheet_id: ts.id, hours_id: h.id }))
               );
