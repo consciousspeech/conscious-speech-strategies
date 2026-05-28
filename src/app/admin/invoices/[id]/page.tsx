@@ -13,7 +13,7 @@ export default async function InvoiceDetailPage({
 
   const { data: invoice } = await supabase
     .from("invoices")
-    .select("*, school:schools(name, address, contact_name, contact_email)")
+    .select("*, school:schools(name, address, contact_name, contact_email, district_number)")
     .eq("id", id)
     .single();
 

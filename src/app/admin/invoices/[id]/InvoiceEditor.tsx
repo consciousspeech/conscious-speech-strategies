@@ -235,10 +235,12 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
               Bill To
             </p>
             <p className="font-semibold text-charcoal text-[15px]">
-              {
-                (invoice.school as Record<string, unknown>)
-                  ?.name as string
-              }
+              {(invoice.school as Record<string, unknown>)?.name as string}
+              {(invoice.school as Record<string, unknown>)?.district_number ? (
+                <span className="ml-2 font-normal text-charcoal-light/70">
+                  #{(invoice.school as Record<string, unknown>).district_number as string}
+                </span>
+              ) : null}
             </p>
             {String(
               (invoice.school as Record<string, unknown>)
@@ -386,6 +388,16 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* Payable to */}
+        <div className="px-8 pb-6">
+          <p className="text-[10px] text-sage-dark uppercase tracking-widest font-semibold mb-1">
+            Make Checks Payable To
+          </p>
+          <p className="text-sm font-semibold text-charcoal">
+            Conscious Speech Strategies LLC
+          </p>
         </div>
 
         {/* Notes */}
