@@ -204,7 +204,7 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                   Conscious Speech Strategies
                 </h2>
                 <p className="text-sm text-charcoal-light/70 mt-0.5">
-                  Rachel Dee, M.S., CCC-SLP
+                  Rachel Degani, M.S., CCC-SLP
                 </p>
                 <p className="text-xs text-charcoal-light/60 mt-0.5">
                   4500 25th Ave S, St. Petersburg, FL 33711
