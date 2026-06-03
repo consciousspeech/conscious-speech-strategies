@@ -103,13 +103,19 @@ export default function ExportPage() {
           new Date((session.date as string) + "T00:00:00").toLocaleDateString(),
         ];
         goals.forEach((g) => {
-          const sg = (session.session_goals as Record<string, unknown>[])?.find(
+          // Collect every session_goal entry for this goal \u2014 a single session
+          // can have multiple data points (trials) for the same goal.
+          const matches = ((session.session_goals as Record<string, unknown>[]) || []).filter(
             (sg) => (sg.goal as Record<string, unknown> | null)?.id === g.id
           );
-          if (sg) {
-            row.push(`${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`);
-          } else {
+          if (matches.length === 0) {
             row.push("\u2014");
+          } else {
+            row.push(
+              matches
+                .map((sg) => `${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`)
+                .join("; ")
+            );
           }
         });
         row.push((session.notes as string) || "");
