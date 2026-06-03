@@ -52,26 +52,49 @@ export default function ExportPage() {
       const student = students.find((s) => s.id === studentId);
       if (!student) continue;
 
-      // Fetch goals
-      const { data: goals } = await supabase
-        .from("goals")
-        .select("*")
-        .eq("student_id", studentId)
-        .order("goal_number");
-
-      // Fetch sessions in date range
+      // Fetch sessions in date range, with their linked goals fully expanded
       const { data: sessions } = await supabase
         .from("sessions")
-        .select("*, session_goals(*, goal:goals(goal_number, description))")
+        .select("*, session_goals(*, goal:goals(id, goal_number, description, iep_year))")
         .eq("student_id", studentId)
         .gte("date", dateFrom)
         .lte("date", dateTo)
         .order("date");
 
+      // Collect every distinct goal that was actually worked on during this
+      // period. Match by goal.id (UUID), not by goal_number \u2014 students can have
+      // goals across multiple IEP years that share numbers.
+      type ExportGoal = {
+        id: string;
+        goal_number: number;
+        description: string;
+        iep_year: string | null;
+      };
+      const goalMap = new Map<string, ExportGoal>();
+      for (const session of (sessions || []) as Record<string, unknown>[]) {
+        for (const sg of (session.session_goals as Record<string, unknown>[]) || []) {
+          const g = sg.goal as ExportGoal | null;
+          if (g && g.id && !goalMap.has(g.id)) goalMap.set(g.id, g);
+        }
+      }
+      // Sort: older IEP year first, then by goal_number. Goals without an
+      // iep_year sort last.
+      const goals = Array.from(goalMap.values()).sort((a, b) => {
+        const ay = a.iep_year ?? "";
+        const by = b.iep_year ?? "";
+        if (ay !== by) {
+          if (!ay) return 1;
+          if (!by) return -1;
+          return ay.localeCompare(by);
+        }
+        return (a.goal_number ?? 0) - (b.goal_number ?? 0);
+      });
+
       // Build rows: header row with goal descriptions, then data rows
       const headerRow = ["Date"];
-      (goals || []).forEach((g) => {
-        headerRow.push(`Goal ${g.goal_number}: ${g.description}`);
+      goals.forEach((g) => {
+        const yearLabel = g.iep_year ? ` [IEP ${g.iep_year}]` : "";
+        headerRow.push(`Goal ${g.goal_number}${yearLabel}: ${g.description}`);
       });
       headerRow.push("Notes");
 
@@ -79,9 +102,9 @@ export default function ExportPage() {
         const row: (string | number)[] = [
           new Date(session.date as string).toLocaleDateString(),
         ];
-        (goals || []).forEach((g) => {
+        goals.forEach((g) => {
           const sg = (session.session_goals as Record<string, unknown>[])?.find(
-            (sg) => (sg.goal as Record<string, unknown>)?.goal_number === g.goal_number
+            (sg) => (sg.goal as Record<string, unknown> | null)?.id === g.id
           );
           if (sg) {
             row.push(`${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`);
