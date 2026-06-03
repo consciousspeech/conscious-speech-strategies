@@ -100,7 +100,7 @@ export default function ExportPage() {
 
       const dataRows = (sessions || []).map((session: Record<string, unknown>) => {
         const row: (string | number)[] = [
-          new Date(session.date as string).toLocaleDateString(),
+          new Date((session.date as string) + "T00:00:00").toLocaleDateString(),
         ];
         goals.forEach((g) => {
           const sg = (session.session_goals as Record<string, unknown>[])?.find(
@@ -119,8 +119,8 @@ export default function ExportPage() {
       const wsData = [
         [`Student: ${student.name}`],
         [`School: ${student.school?.name || ""}`],
-        [`IEP Date: ${student.iep_date ? new Date(student.iep_date).toLocaleDateString() : "N/A"}`],
-        [`Report Period: ${new Date(dateFrom).toLocaleDateString()} \u2014 ${new Date(dateTo).toLocaleDateString()}`],
+        [`IEP Date: ${student.iep_date ? new Date(student.iep_date + "T00:00:00").toLocaleDateString() : "N/A"}`],
+        [`Report Period: ${new Date(dateFrom + "T00:00:00").toLocaleDateString()} \u2014 ${new Date(dateTo + "T00:00:00").toLocaleDateString()}`],
         [],
         headerRow,
         ...dataRows,
