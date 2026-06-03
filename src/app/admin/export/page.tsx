@@ -111,10 +111,24 @@ export default function ExportPage() {
           if (matches.length === 0) {
             row.push("\u2014");
           } else {
+            // Format each data point as:
+            //   [target:] correct/total (%) [\u2014 performance_level] [\u2014 notes]
+            // Then stack multiple points on separate lines inside the cell.
             row.push(
               matches
-                .map((sg) => `${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`)
-                .join("; ")
+                .map((sg) => {
+                  const target = (sg.target as string | null) || "";
+                  const perf = (sg.performance_level as string | null) || "";
+                  const notes = (sg.notes as string | null) || "";
+                  const score = `${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`;
+                  const parts: string[] = [];
+                  if (target) parts.push(`${target}:`);
+                  parts.push(score);
+                  if (perf) parts.push(`\u2014 ${perf}`);
+                  if (notes) parts.push(`\u2014 ${notes}`);
+                  return parts.join(" ");
+                })
+                .join("\n")
             );
           }
         });
