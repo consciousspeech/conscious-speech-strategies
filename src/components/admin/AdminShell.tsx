@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Sidebar from "@/components/admin/Sidebar";
+import IdleLogoutGuard from "@/components/admin/IdleLogoutGuard";
 import { AdminProvider } from "@/lib/admin-context";
 import type { Role } from "@/lib/supabase/types";
 
@@ -10,6 +11,7 @@ export default function AdminShell({ children, role }: { children: React.ReactNo
 
   return (
     <div className="admin-shell flex min-h-screen bg-slate-50/80" style={{ fontFamily: "var(--font-admin)" }}>
+      <IdleLogoutGuard />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} />
 
       <div className="flex-1 flex flex-col min-w-0">

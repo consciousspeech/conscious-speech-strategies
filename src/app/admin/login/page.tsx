@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -12,7 +12,9 @@ export default function LoginPage() {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+  const timedOut = searchParams.get("reason") === "timeout";
 
   async function handleForgotPassword() {
     if (!email) {
@@ -60,6 +62,14 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-sm shadow-slate-200/50 border border-slate-200/60 p-7 space-y-5">
+          {timedOut && (
+            <div className="flex items-center gap-2 text-amber-700 text-sm bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-lg">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              You were signed out due to inactivity. Please sign in again.
+            </div>
+          )}
           <div>
             <label htmlFor="email" className="block text-[13px] font-medium text-slate-700 mb-1.5">Email address</label>
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
