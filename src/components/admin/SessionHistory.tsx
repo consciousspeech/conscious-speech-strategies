@@ -23,6 +23,8 @@ interface SessionData {
   date: string;
   notes: string | null;
   iep_year: string | null;
+  occurred?: boolean;
+  no_show_reason?: string | null;
   entered_by_profile: { name: string } | null;
   session_goals: SessionGoalData[];
 }
@@ -249,14 +251,21 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-[13px] font-medium text-slate-900">
-                      {formatLocalDate(session.date, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[13px] font-medium text-slate-900">
+                        {formatLocalDate(session.date, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                      {session.occurred === false && (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700">
+                          Did not occur
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-slate-400">
                         {session.entered_by_profile?.name && `by ${session.entered_by_profile.name}`}
@@ -297,6 +306,11 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                         </div>
                       ))}
                     </div>
+                  )}
+                  {session.no_show_reason && (
+                    <p className="text-xs text-amber-700 mt-2">
+                      <span className="font-medium">Reason:</span> {session.no_show_reason}
+                    </p>
                   )}
                   {session.notes && (
                     <p className="text-xs text-slate-400 mt-2">{session.notes}</p>

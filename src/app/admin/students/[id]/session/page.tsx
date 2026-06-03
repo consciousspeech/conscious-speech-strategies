@@ -10,11 +10,14 @@ export default function NewSessionPage() {
   const router = useRouter();
   const { id: studentId } = useParams<{ id: string }>();
   const [studentName, setStudentName] = useState("");
+  const [schoolName, setSchoolName] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [goalData, setGoalData] = useState<Record<string, Array<{ correct: string; total: string; notes: string; target: string }>>>({});
   const [saving, setSaving] = useState(false);
+  const [occurred, setOccurred] = useState(true);
+  const [noShowReason, setNoShowReason] = useState("");
 
   useEffect(() => {
     loadData();
@@ -22,10 +25,14 @@ export default function NewSessionPage() {
 
   async function loadData() {
     const [{ data: student }, { data: goalsData }] = await Promise.all([
-      supabase.from("students").select("name").eq("id", studentId).single(),
+      supabase.from("students").select("name, school:schools(name)").eq("id", studentId).single(),
       supabase.from("goals").select("*").eq("student_id", studentId).eq("archived", false).order("goal_number"),
     ]);
-    if (student) setStudentName(student.name);
+    if (student) {
+      setStudentName(student.name);
+      const sc = (student as unknown as { school?: { name?: string } }).school;
+      setSchoolName(sc?.name ?? null);
+    }
     if (goalsData) {
       setGoals(goalsData);
       const initial: Record<string, Array<{ correct: string; total: string; notes: string; target: string }>> = {};
@@ -67,6 +74,13 @@ export default function NewSessionPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // No-show requires a reason — enforce client-side too as a safety net
+    if (!occurred && !noShowReason.trim()) {
+      alert("Please enter the reason the session did not occur.");
+      return;
+    }
+
     setSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -78,6 +92,8 @@ export default function NewSessionPage() {
         date,
         entered_by: user?.id,
         notes: notes || null,
+        occurred,
+        no_show_reason: occurred ? null : noShowReason.trim(),
       })
       .select()
       .single();
@@ -88,28 +104,48 @@ export default function NewSessionPage() {
       return;
     }
 
-    // Insert session goals — flatten all variant entries
-    const sessionGoals = goals
-      .flatMap((g) => {
-        const entries = goalData[g.id] || [];
-        return entries.map((d) => {
-          const correct = parseInt(d.correct) || 0;
-          const total = parseInt(d.total) || 0;
-          if (total === 0 && correct === 0) return null;
-          return {
-            session_id: session.id,
-            goal_id: g.id,
-            correct_count: correct,
-            total_count: total,
-            notes: d.notes || null,
-            target: d.target || null,
-          };
-        });
-      })
-      .filter(Boolean);
+    if (occurred) {
+      // Insert session goals — flatten all variant entries
+      const sessionGoals = goals
+        .flatMap((g) => {
+          const entries = goalData[g.id] || [];
+          return entries.map((d) => {
+            const correct = parseInt(d.correct) || 0;
+            const total = parseInt(d.total) || 0;
+            if (total === 0 && correct === 0) return null;
+            return {
+              session_id: session.id,
+              goal_id: g.id,
+              correct_count: correct,
+              total_count: total,
+              notes: d.notes || null,
+              target: d.target || null,
+            };
+          });
+        })
+        .filter(Boolean);
 
-    if (sessionGoals.length > 0) {
-      await supabase.from("session_goals").insert(sessionGoals);
+      if (sessionGoals.length > 0) {
+        await supabase.from("session_goals").insert(sessionGoals);
+      }
+    } else {
+      // Fire-and-forget email notification to Rachel
+      const { data: enteredByProfile } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", user?.id ?? "")
+        .single();
+      fetch("/api/session-no-show", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentName,
+          schoolName,
+          sessionDate: date,
+          reason: noShowReason.trim(),
+          enteredByName: enteredByProfile?.name || "Unknown",
+        }),
+      }).catch((err) => console.error("No-show email notify failed:", err));
     }
 
     router.push(`/admin/students/${studentId}`);
@@ -135,14 +171,48 @@ export default function NewSessionPage() {
             <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Session Date</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
           </div>
-          <div>
-            <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Session Notes</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              placeholder="Optional notes about this session..." className={inputClass} />
-          </div>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={occurred}
+              onChange={(e) => setOccurred(e.target.checked)}
+              className="mt-0.5 w-4 h-4 cursor-pointer accent-teal-600"
+            />
+            <div>
+              <p className="text-[13px] font-medium text-slate-700">Session occurred</p>
+              <p className="text-[12px] text-slate-400">Uncheck if the session did not happen (no-show, cancellation, etc.)</p>
+            </div>
+          </label>
+          {!occurred && (
+            <div>
+              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
+                Reason session did not occur <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={noShowReason}
+                onChange={(e) => setNoShowReason(e.target.value)}
+                rows={3}
+                required
+                placeholder="e.g. Student absent, scheduling conflict, sick, etc."
+                className={inputClass}
+              />
+              <p className="text-[12px] text-amber-700 mt-1.5">
+                Rachel will be emailed when you save this entry.
+              </p>
+            </div>
+          )}
+          {occurred && (
+            <div>
+              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Session Notes</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+                placeholder="Optional notes about this session..." className={inputClass} />
+            </div>
+          )}
         </div>
 
-        {/* Goal Data Entry */}
+        {/* Goal Data Entry — only show when the session occurred */}
+        {occurred && (
+        <>
         <div className="space-y-4">
           {goals.map((goal) => {
             const entries = goalData[goal.id] || [];
@@ -222,6 +292,8 @@ export default function NewSessionPage() {
               Add goals first.
             </a>
           </p>
+        )}
+        </>
         )}
 
         <div className="flex gap-3">

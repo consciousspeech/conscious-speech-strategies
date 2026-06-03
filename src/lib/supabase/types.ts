@@ -73,6 +73,8 @@ export interface Session {
   entered_by: string;
   notes: string | null;
   iep_year: string | null;
+  occurred: boolean;
+  no_show_reason: string | null;
   created_at: string;
   // joined
   student?: Student;
