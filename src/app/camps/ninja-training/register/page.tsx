@@ -5,12 +5,29 @@ import Image from "next/image";
 import Link from "next/link";
 import CampWaiver, { WAIVER_VERSION, isWaiverValid } from "@/components/camps/CampWaiver";
 
-const steps = ["Child Info", "Background", "Contact", "Waiver", "Review"];
-const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/9B63cx0iF6Poa9IfpuaAw01";
+const steps = ["Plan", "Child Info", "Background", "Contact", "Waiver", "Review"];
+
+// All 5 class dates for the summer 2026 Ninja Training cohort.
+const CLASS_DATES: { iso: string; label: string }[] = [
+  { iso: "2026-06-16", label: "Tue, Jun 16" },
+  { iso: "2026-06-23", label: "Tue, Jun 23" },
+  { iso: "2026-06-30", label: "Tue, Jun 30" },
+  { iso: "2026-07-07", label: "Tue, Jul 7" },
+  { iso: "2026-07-14", label: "Tue, Jul 14" },
+];
+
+const PACKAGE_PRICE = 120;
+const DROP_IN_PRICE = 30;
+const REG_FEE_PRICE = 30;
+
+type Plan = "package" | "drop_in";
 
 export default function NinjaTrainingRegister() {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [plan, setPlan] = useState<Plan>("package");
+  const [dropInDates, setDropInDates] = useState<string[]>([]);
+  const [registrationFee, setRegistrationFee] = useState(true);
   const [form, setForm] = useState({
     childName: "",
     address: "",
@@ -27,6 +44,21 @@ export default function NinjaTrainingRegister() {
   const [waiverSignature, setWaiverSignature] = useState("");
   const [waiverAgreed, setWaiverAgreed] = useState(false);
 
+  const subtotal =
+    plan === "package"
+      ? PACKAGE_PRICE
+      : dropInDates.length * DROP_IN_PRICE;
+  const totalPrice = subtotal + (registrationFee ? REG_FEE_PRICE : 0);
+  const planValid =
+    plan === "package" ||
+    (plan === "drop_in" && dropInDates.length > 0);
+
+  function toggleDropInDate(iso: string) {
+    setDropInDates((prev) =>
+      prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso].sort()
+    );
+  }
+
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
@@ -39,8 +71,15 @@ export default function NinjaTrainingRegister() {
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  function handleSubmitAndPay() {
+  async function handleSubmitAndPay() {
     setSubmitting(true);
+
+    const planLabel =
+      plan === "package"
+        ? "5-session package ($120)"
+        : `Drop-in: ${dropInDates
+            .map((d) => CLASS_DATES.find((c) => c.iso === d)?.label || d)
+            .join(", ")} ($${dropInDates.length * DROP_IN_PRICE})`;
 
     // Save registration data to localStorage — it will be sent to Rachel
     // via Formspree only after successful payment on the success page
@@ -49,6 +88,9 @@ export default function NinjaTrainingRegister() {
       JSON.stringify({
         _subject: `🥷 Ninja Training Registration: ${form.childName}`,
         Camp: "Intuitive Ninja Training",
+        Plan: planLabel,
+        "Registration Fee": registrationFee ? "Yes ($30)" : "No",
+        Total: `$${totalPrice}`,
         "Child Name": form.childName,
         Address: form.address,
         "Special Info": form.specialInfo || "Not provided",
@@ -67,7 +109,31 @@ export default function NinjaTrainingRegister() {
       })
     );
 
-    window.location.href = STRIPE_PAYMENT_LINK;
+    try {
+      const res = await fetch("/api/checkout/ninja", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan,
+          dropInDates: plan === "drop_in" ? dropInDates : undefined,
+          registrationFee,
+          childName: form.childName,
+          parentName: form.parentName,
+          parentEmail: form.email,
+          parentPhone: form.phone,
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Something went wrong creating the checkout session. Please try again.");
+        setSubmitting(false);
+      }
+    } catch {
+      alert("Something went wrong. Please try again.");
+      setSubmitting(false);
+    }
   }
 
   const inputClass =
@@ -157,8 +223,170 @@ export default function NinjaTrainingRegister() {
           </div>
         )}
 
-        {/* Step 1: Child Info */}
+        {/* Step 1: Plan & Pricing */}
         {step === 0 && (
+          <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
+            <h2 className="mb-2 font-serif text-2xl font-light text-charcoal">
+              Choose Your Plan
+            </h2>
+            <p className="mb-6 font-body text-sm text-charcoal-light">
+              Pick the 5-session package or drop in for individual classes.
+            </p>
+
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setPlan("package")}
+                className={`flex w-full items-center gap-4 rounded-xl border-2 p-5 text-left transition-all duration-300 ${
+                  plan === "package"
+                    ? "border-olive bg-olive/8 shadow-sm"
+                    : "border-olive/15 bg-cream hover:border-olive/40"
+                }`}
+              >
+                <div
+                  className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                    plan === "package"
+                      ? "border-olive bg-olive text-white"
+                      : "border-olive/30 bg-white"
+                  }`}
+                >
+                  {plan === "package" && (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-body text-sm font-semibold text-charcoal">5-Session Package</p>
+                  <p className="font-body text-xs text-charcoal-light">All 5 Tuesdays, Jun 16 – Jul 14</p>
+                </div>
+                <span className="font-body text-sm font-medium text-olive">${PACKAGE_PRICE}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPlan("drop_in")}
+                className={`flex w-full items-center gap-4 rounded-xl border-2 p-5 text-left transition-all duration-300 ${
+                  plan === "drop_in"
+                    ? "border-olive bg-olive/8 shadow-sm"
+                    : "border-olive/15 bg-cream hover:border-olive/40"
+                }`}
+              >
+                <div
+                  className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                    plan === "drop_in"
+                      ? "border-olive bg-olive text-white"
+                      : "border-olive/30 bg-white"
+                  }`}
+                >
+                  {plan === "drop_in" && (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-body text-sm font-semibold text-charcoal">Drop-In</p>
+                  <p className="font-body text-xs text-charcoal-light">Pick individual class dates</p>
+                </div>
+                <span className="font-body text-sm font-medium text-olive">${DROP_IN_PRICE}/class</span>
+              </button>
+            </div>
+
+            {plan === "drop_in" && (
+              <div className="mt-6">
+                <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-wider text-charcoal-light">
+                  Select class dates
+                </p>
+                <div className="space-y-2">
+                  {CLASS_DATES.map((c) => {
+                    const selected = dropInDates.includes(c.iso);
+                    return (
+                      <button
+                        key={c.iso}
+                        type="button"
+                        onClick={() => toggleDropInDate(c.iso)}
+                        className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all duration-200 ${
+                          selected
+                            ? "border-olive bg-olive/8"
+                            : "border-olive/15 bg-cream hover:border-olive/40"
+                        }`}
+                      >
+                        <div
+                          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200 ${
+                            selected
+                              ? "border-olive bg-olive text-white"
+                              : "border-olive/30 bg-white"
+                          }`}
+                        >
+                          {selected && (
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className="flex-1 font-body text-sm text-charcoal">{c.label}</span>
+                        <span className="font-body text-xs text-olive">${DROP_IN_PRICE}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 rounded-xl border border-olive/15 bg-cream p-5">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={registrationFee}
+                  onChange={(e) => setRegistrationFee(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 cursor-pointer accent-olive"
+                />
+                <div className="flex-1">
+                  <p className="font-body text-sm font-semibold text-charcoal">
+                    Add $30 one-time registration fee
+                  </p>
+                  <p className="mt-0.5 font-body text-xs text-charcoal-light">
+                    Covers mask &amp; materials. Uncheck if you&apos;ve already paid this for a previous cohort.
+                  </p>
+                </div>
+                <span className="font-body text-sm font-medium text-olive">${REG_FEE_PRICE}</span>
+              </label>
+            </div>
+
+            {(plan === "package" || dropInDates.length > 0) && (
+              <div className="mt-6 rounded-xl bg-olive/10 px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-body text-sm font-medium text-charcoal">
+                    {plan === "package"
+                      ? "5-Session Package"
+                      : `${dropInDates.length} ${dropInDates.length === 1 ? "drop-in" : "drop-ins"}`}
+                    {registrationFee ? " + registration fee" : ""}
+                  </span>
+                  <span className="font-serif text-xl font-medium text-olive">
+                    ${totalPrice}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={next}
+                disabled={!planValid}
+                className="inline-flex items-center gap-2 rounded-full bg-olive px-8 py-3 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-olive/80 disabled:opacity-40"
+              >
+                Continue
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Child Info */}
+        {step === 1 && (
           <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
             <h2 className="mb-6 font-serif text-2xl font-light text-charcoal">
               About Your Child
@@ -212,8 +440,8 @@ export default function NinjaTrainingRegister() {
           </div>
         )}
 
-        {/* Step 2: Background */}
-        {step === 1 && (
+        {/* Step 3: Background */}
+        {step === 2 && (
           <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
             <h2 className="mb-6 font-serif text-2xl font-light text-charcoal">
               Background Information
@@ -310,8 +538,8 @@ export default function NinjaTrainingRegister() {
           </div>
         )}
 
-        {/* Step 3: Contact */}
-        {step === 2 && (
+        {/* Step 4: Contact */}
+        {step === 3 && (
           <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
             <h2 className="mb-6 font-serif text-2xl font-light text-charcoal">
               Your Contact Information
@@ -372,8 +600,8 @@ export default function NinjaTrainingRegister() {
           </div>
         )}
 
-        {/* Step 4: Waiver */}
-        {step === 3 && (
+        {/* Step 5: Waiver */}
+        {step === 4 && (
           <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
             <h2 className="mb-6 font-serif text-2xl font-light text-charcoal">
               Camp Waiver
@@ -414,8 +642,8 @@ export default function NinjaTrainingRegister() {
           </div>
         )}
 
-        {/* Step 5: Review */}
-        {step === 4 && (
+        {/* Step 6: Review */}
+        {step === 5 && (
           <div className="rounded-2xl bg-white p-8 shadow-sm md:p-10">
             <h2 className="mb-6 font-serif text-2xl font-light text-charcoal">
               Review Your Information
@@ -443,32 +671,41 @@ export default function NinjaTrainingRegister() {
               <ReviewItem label="Waiver Signed" value={waiverSignature ? `${waiverSignature} (${new Date().toLocaleDateString()})` : ""} />
             </div>
 
-            <div className="mt-8 rounded-xl bg-olive/8 p-5">
+            {/* Price breakdown */}
+            <div className="mt-6 rounded-xl bg-olive/10 px-5 py-4 space-y-2">
+              <div className="flex items-center justify-between font-body text-sm text-charcoal">
+                <span>
+                  {plan === "package"
+                    ? "5-Session Package"
+                    : `Drop-in (${dropInDates.length} ${dropInDates.length === 1 ? "class" : "classes"})`}
+                </span>
+                <span className="tabular-nums">${subtotal}</span>
+              </div>
+              {plan === "drop_in" && dropInDates.length > 0 && (
+                <p className="font-body text-xs text-charcoal-light">
+                  {dropInDates
+                    .map((d) => CLASS_DATES.find((c) => c.iso === d)?.label || d)
+                    .join(", ")}
+                </p>
+              )}
+              {registrationFee && (
+                <div className="flex items-center justify-between font-body text-sm text-charcoal">
+                  <span>Registration fee (mask &amp; materials)</span>
+                  <span className="tabular-nums">${REG_FEE_PRICE}</span>
+                </div>
+              )}
+              <div className="border-t border-olive/20 pt-2 flex items-center justify-between font-body text-base font-semibold text-charcoal">
+                <span>Total</span>
+                <span className="font-serif text-xl text-olive tabular-nums">${totalPrice}</span>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-xl bg-olive/8 p-5">
               <p className="font-body text-sm leading-relaxed text-charcoal-light">
                 By proceeding to payment, you confirm that the information above
                 is accurate. After payment, Rachel will reach out to confirm
                 your child&apos;s spot.
               </p>
-            </div>
-
-            {/* Drop-in option */}
-            <div className="mt-5 rounded-xl border border-olive/15 bg-cream p-5">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-olive/10">
-                  <svg className="h-4 w-4 text-olive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-body text-sm font-semibold text-charcoal">
-                    Drop-ins also available!
-                  </p>
-                  <p className="mt-1 font-body text-sm leading-relaxed text-charcoal-light">
-                    Want to try a single day? Drop-ins are just <span className="font-semibold text-olive">$30 per day</span>.
-                    Contact Rachel to arrange a drop-in.
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="mt-8 flex justify-between">
@@ -496,7 +733,7 @@ export default function NinjaTrainingRegister() {
                   </>
                 ) : (
                   <>
-                    Proceed to Payment
+                    Pay ${totalPrice}
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
