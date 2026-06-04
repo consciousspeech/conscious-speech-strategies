@@ -286,6 +286,99 @@ export default function NinjaTrainingCamp() {
         </div>
       </section>
 
+      {/* Meet Your Senseis */}
+      <section className="relative overflow-hidden py-16 md:py-24">
+        <div className="pointer-events-none absolute -top-32 -right-32 h-72 w-72 rounded-full bg-olive/8 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-32 h-72 w-72 rounded-full bg-peach/8 blur-3xl" />
+
+        <div className="relative mx-auto max-w-5xl px-6 lg:px-8">
+          <div className="fade-up mx-auto mb-16 max-w-2xl text-center">
+            <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.3em] text-olive">
+              Meet Your Senseis
+            </p>
+            <h2 className="font-serif text-3xl font-light text-charcoal md:text-4xl">
+              The team behind <span className="italic">Intuitive Ninja</span>
+            </h2>
+          </div>
+
+          {/* Rachel — photo left, text right */}
+          <div className="fade-up delay-1 mb-16 grid items-center gap-8 md:grid-cols-5 md:gap-12">
+            <div className="md:col-span-2">
+              <div className="relative mx-auto aspect-square max-w-sm overflow-hidden rounded-2xl shadow-md md:max-w-none">
+                <Image
+                  src="/images/rachel-totem.jpg"
+                  alt="Rachel Degani with her wife and son"
+                  fill
+                  className="object-cover object-top"
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                />
+              </div>
+            </div>
+            <div className="md:col-span-3">
+              <h3 className="mb-1 font-serif text-2xl font-light text-charcoal">
+                Rachel Degani
+              </h3>
+              <p className="mb-4 font-body text-[11px] font-bold uppercase tracking-wider text-olive">
+                Founder, Conscious Speech Strategies &middot; M.S., CCC-SLP
+              </p>
+              <p className="font-body text-[15px] leading-relaxed text-charcoal-light">
+                Rachel is the founder of Conscious Speech Strategies, a
+                speech-language pathologist, fire spinner/prop manipulator,
+                laughter yoga instructor, and Infinite Child
+                Institute&ndash;certified teacher in blindfolded seeing for
+                children. A proud mama herself, she believes in raising a
+                generation of children who are brave, compassionate,
+                self-reliant, and tuned in to their own intuition. Playful and
+                movement-based by nature, Rachel weaves curiosity, creativity,
+                and embodied awareness into every session, because she knows
+                children learn best when they&rsquo;re laughing, moving, and
+                trusted.
+              </p>
+            </div>
+          </div>
+
+          {/* Christina — text left, photo right */}
+          <div className="fade-up delay-2 grid items-center gap-8 md:grid-cols-5 md:gap-12">
+            <div className="md:order-2 md:col-span-2">
+              <div className="relative mx-auto aspect-square max-w-sm overflow-hidden rounded-2xl shadow-md md:max-w-none">
+                <Image
+                  src="/images/christina-prestero.jpg"
+                  alt="Christina Prestero"
+                  fill
+                  className="object-cover object-top"
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                />
+              </div>
+            </div>
+            <div className="md:order-1 md:col-span-3">
+              <h3 className="mb-1 font-serif text-2xl font-light text-charcoal">
+                Christina Prestero
+              </h3>
+              <p className="mb-4 font-body text-[11px] font-bold uppercase tracking-wider text-olive">
+                Founder, Quantum Herbalism
+              </p>
+              <p className="font-body text-[15px] leading-relaxed text-charcoal-light">
+                Christina is a nature-based educator, mother, and founder of
+                Quantum Herbalism. She weaves together herbal sensory
+                experiences, intuitive development, movement, creativity, and
+                grounded mindfulness to create playful, heart-centered
+                experiences for children and families. Her work encourages
+                curiosity, confidence, embodiment, and connection with both
+                nature and self through imaginative and engaging practices.{" "}
+                <a
+                  href="https://quantumherbalism.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-olive underline decoration-olive/40 underline-offset-2 transition-colors hover:text-olive hover:decoration-olive"
+                >
+                  quantumherbalism.com
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Weekly Curriculum */}
       <section className="relative overflow-hidden py-16 md:py-24">
         <div className="pointer-events-none absolute -top-32 -left-32 h-72 w-72 rounded-full bg-peach/8 blur-3xl" />
