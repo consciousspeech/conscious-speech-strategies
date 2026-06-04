@@ -30,13 +30,20 @@ export default function NinjaTrainingRegister() {
   const [registrationFee, setRegistrationFee] = useState(true);
   const [form, setForm] = useState({
     childName: "",
+    childDob: "",
     address: "",
     specialInfo: "",
     diagnosisWilling: "",
     diagnosisInfo: "",
     hasIEP: "",
     foodAllergies: "",
+    medications: "",
+    otherAllergies: "",
     anythingElse: "",
+    emergencyName: "",
+    emergencyPhone: "",
+    emergencyRelationship: "",
+    authorizedPickup: "",
     parentName: "",
     phone: "",
     email: "",
@@ -92,13 +99,20 @@ export default function NinjaTrainingRegister() {
         "Registration Fee": registrationFee ? "Yes ($30)" : "No",
         Total: `$${totalPrice}`,
         "Child Name": form.childName,
+        "Child Date of Birth": form.childDob || "Not provided",
         Address: form.address,
         "Special Info": form.specialInfo || "Not provided",
         "Willing to Share Diagnosis": form.diagnosisWilling || "Not provided",
         "Diagnosis Info": form.diagnosisInfo || "Not provided",
         "Has IEP": form.hasIEP || "Not provided",
         "Food Allergies": form.foodAllergies || "Not provided",
+        Medications: form.medications || "None",
+        "Other Allergies": form.otherAllergies || "None",
         "Additional Notes": form.anythingElse || "Not provided",
+        "Emergency Contact Name": form.emergencyName,
+        "Emergency Contact Phone": form.emergencyPhone,
+        "Emergency Contact Relationship": form.emergencyRelationship,
+        "Authorized Pickup": form.authorizedPickup || "Parent/guardian only",
         "Parent/Guardian Name": form.parentName,
         Phone: form.phone,
         Email: form.email,
@@ -403,6 +417,15 @@ export default function NinjaTrainingRegister() {
                 />
               </div>
               <div>
+                <label className={labelClass}>Date of Birth</label>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={form.childDob}
+                  onChange={(e) => update("childDob", e.target.value)}
+                />
+              </div>
+              <div>
                 <label className={labelClass}>Address</label>
                 <input
                   type="text"
@@ -503,6 +526,79 @@ export default function NinjaTrainingRegister() {
                 />
               </div>
               <div>
+                <label className={labelClass}>Other allergies (medication, environmental, insect stings)</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="List other allergies or type 'None'"
+                  value={form.otherAllergies}
+                  onChange={(e) => update("otherAllergies", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Medications your child takes regularly</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="List medications or type 'None'"
+                  value={form.medications}
+                  onChange={(e) => update("medications", e.target.value)}
+                />
+              </div>
+
+              <div className="border-t border-olive/15 pt-5 mt-2">
+                <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-wider text-olive">
+                  Emergency &amp; pickup
+                </p>
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Emergency contact name</label>
+                      <input
+                        type="text"
+                        className={inputClass}
+                        placeholder="Full name"
+                        value={form.emergencyName}
+                        onChange={(e) => update("emergencyName", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Relationship</label>
+                      <input
+                        type="text"
+                        className={inputClass}
+                        placeholder="e.g. grandparent, aunt"
+                        value={form.emergencyRelationship}
+                        onChange={(e) => update("emergencyRelationship", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Emergency contact phone</label>
+                    <input
+                      type="tel"
+                      className={inputClass}
+                      placeholder="(555) 555-5555"
+                      value={form.emergencyPhone}
+                      onChange={(e) => update("emergencyPhone", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      Authorized to pick up your child (besides you)
+                    </label>
+                    <input
+                      type="text"
+                      className={inputClass}
+                      placeholder="Full names, separated by commas. Leave blank if parent/guardian only."
+                      value={form.authorizedPickup}
+                      onChange={(e) => update("authorizedPickup", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
                 <label className={labelClass}>
                   Anything else we should know to work well with your child?
                 </label>
@@ -527,7 +623,8 @@ export default function NinjaTrainingRegister() {
               </button>
               <button
                 onClick={next}
-                className="inline-flex items-center gap-2 rounded-full bg-olive px-8 py-3 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-olive/80"
+                disabled={!form.emergencyName || !form.emergencyPhone}
+                className="inline-flex items-center gap-2 rounded-full bg-olive px-8 py-3 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-olive/80 disabled:opacity-40"
               >
                 Continue
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -650,6 +747,7 @@ export default function NinjaTrainingRegister() {
             </h2>
             <div className="space-y-4">
               <ReviewItem label="Child's Name" value={form.childName} />
+              <ReviewItem label="Date of Birth" value={form.childDob} />
               <ReviewItem label="Address" value={form.address} />
               <ReviewItem label="Special Info" value={form.specialInfo} />
               <ReviewItem
@@ -662,7 +760,12 @@ export default function NinjaTrainingRegister() {
               />
               <ReviewItem label="IEP" value={form.hasIEP} />
               <ReviewItem label="Food Allergies" value={form.foodAllergies} />
+              <ReviewItem label="Other Allergies" value={form.otherAllergies} />
+              <ReviewItem label="Medications" value={form.medications} />
               <ReviewItem label="Additional Notes" value={form.anythingElse} />
+              <div className="my-4 h-px bg-olive/10" />
+              <ReviewItem label="Emergency Contact" value={`${form.emergencyName}${form.emergencyRelationship ? ` (${form.emergencyRelationship})` : ""} — ${form.emergencyPhone}`} />
+              <ReviewItem label="Authorized Pickup" value={form.authorizedPickup || "Parent/guardian only"} />
               <div className="my-4 h-px bg-olive/10" />
               <ReviewItem label="Parent/Guardian" value={form.parentName} />
               <ReviewItem label="Phone" value={form.phone} />

@@ -16,7 +16,7 @@ const PACKAGE_PRICE_CENTS = 12000; // $120.00
 const DROP_IN_PRICE_CENTS = 3000; // $30.00
 const REG_FEE_CENTS = 3000; // $30.00
 
-type Plan = "package" | "drop_in";
+type Plan = "package" | "drop_in" | "registration_fee_only";
 
 interface NinjaCheckoutBody {
   plan: Plan;
@@ -93,11 +93,15 @@ export async function POST(request: Request) {
         quantity: 1,
       });
     }
+  } else if (body.plan === "registration_fee_only") {
+    // Reg-fee-only checkout for already-registered families who haven't
+    // paid the $30 mask & materials fee yet. The reg fee line item is
+    // added below in the shared block.
   } else {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
-  if (body.registrationFee) {
+  if (body.registrationFee || body.plan === "registration_fee_only") {
     lineItems.push({
       price_data: {
         currency: "usd",
@@ -109,6 +113,13 @@ export async function POST(request: Request) {
       },
       quantity: 1,
     });
+  }
+
+  if (lineItems.length === 0) {
+    return NextResponse.json(
+      { error: "Nothing to charge — pick a plan or registration fee" },
+      { status: 400 }
+    );
   }
 
   try {

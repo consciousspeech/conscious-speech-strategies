@@ -224,6 +224,42 @@ export default function MindBodySpeechCamp() {
               </p>
             </div>
           </div>
+
+          {/* Drop-off & Pickup */}
+          <div className="fade-up delay-3 mx-auto mt-10 max-w-2xl">
+            <div className="rounded-2xl bg-warm-white p-6 shadow-sm md:p-8">
+              <p className="mb-4 text-center font-body text-[10px] font-bold uppercase tracking-[0.3em] text-sage-dark">
+                Drop-off &amp; Pickup
+              </p>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="rounded-xl bg-sage/8 p-5">
+                  <p className="font-body text-[11px] font-bold uppercase tracking-wider text-sage-dark">
+                    Morning Drop-off
+                  </p>
+                  <p className="mt-1 font-serif text-xl font-light text-charcoal">
+                    8:50 &ndash; 9:05am
+                  </p>
+                </div>
+                <div className="rounded-xl bg-sage/8 p-5">
+                  <p className="font-body text-[11px] font-bold uppercase tracking-wider text-sage-dark">
+                    Afternoon Pickup
+                  </p>
+                  <p className="mt-1 font-serif text-xl font-light text-charcoal">
+                    11:55am &ndash; 12:10pm
+                  </p>
+                </div>
+              </div>
+              <p className="mt-5 font-body text-sm leading-relaxed text-charcoal-light">
+                Rachel will meet families <span className="font-semibold text-charcoal">outside SLAM Apollo</span> for
+                drop-off and pickup, with a sign-in / sign-out sheet to track every child.
+              </p>
+              <p className="mt-2 font-body text-sm leading-relaxed text-charcoal-light">
+                Photo ID may be required for pickup during the first few days
+                or any time someone unfamiliar to staff is collecting your child.
+                Please list authorized pickup people on your registration form.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 

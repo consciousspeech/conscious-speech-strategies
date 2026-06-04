@@ -264,7 +264,7 @@ export default function NinjaTrainingCamp() {
                 Scholarships available &mdash; no one turned away due to cost.
               </p>
               <p className="mt-2 font-body text-sm text-charcoal-light">
-                Private residence in Gulfport &bull; Address shared upon registration
+                Private residence in St. Petersburg, FL &bull; Address shared upon registration
               </p>
             </div>
           </div>
@@ -505,7 +505,7 @@ export default function NinjaTrainingCamp() {
               },
               {
                 q: "Where is the program held?",
-                a: "Sessions are held at a private residence in Gulfport. The exact address will be shared upon registration.",
+                a: "Sessions are held at a private residence in St. Petersburg, FL. The exact address is shared with registered families via email.",
               },
             ].map((faq, i) => (
               <details
@@ -545,8 +545,8 @@ export default function NinjaTrainingCamp() {
               Ready to <span className="italic">Train?</span>
             </h2>
             <p className="mb-3 font-body text-base leading-relaxed text-charcoal-light">
-              Spaces are limited. Register now to secure your spot and receive
-              the Gulfport location address.
+              Spaces are limited. Register now to secure your spot and
+              receive the location details.
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
