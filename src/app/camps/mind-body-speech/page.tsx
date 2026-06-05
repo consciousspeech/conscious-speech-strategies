@@ -165,9 +165,9 @@ export default function MindBodySpeechCamp() {
                 Investment
               </p>
               <p className="mt-1 font-body text-sm font-medium text-charcoal">
-                $275<span className="text-charcoal-light/60 line-through ml-1 text-xs">$300</span>
+                $300
               </p>
-              <p className="font-body text-xs text-charcoal-light">per week &bull; early bird</p>
+              <p className="font-body text-xs text-charcoal-light">per week</p>
               <p className="font-body text-[10px] text-sage-dark font-semibold mt-0.5">$800 for all 3 weeks</p>
             </div>
           </div>
@@ -436,7 +436,7 @@ export default function MindBodySpeechCamp() {
               },
               {
                 q: "Can my child attend just one or two weeks?",
-                a: "Yes! You can register for individual weeks or sign up for all three weeks at a discounted bundle rate of $800. Early bird pricing is $275/week (before May 10), and regular pricing is $300/week.",
+                a: "Yes! You can register for individual weeks or sign up for all three weeks at a discounted bundle rate of $800. Individual weeks are $300/week.",
               },
               {
                 q: "What should my child bring?",

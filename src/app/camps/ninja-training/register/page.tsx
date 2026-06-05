@@ -51,11 +51,14 @@ export default function NinjaTrainingRegister() {
   const [waiverSignature, setWaiverSignature] = useState("");
   const [waiverAgreed, setWaiverAgreed] = useState(false);
 
+  // The registration fee is always included with the package — it's bundled
+  // into the displayed package price. Only drop-in lets the user opt out.
+  const effectiveRegFee = plan === "package" ? true : registrationFee;
   const subtotal =
     plan === "package"
       ? PACKAGE_PRICE
       : dropInDates.length * DROP_IN_PRICE;
-  const totalPrice = subtotal + (registrationFee ? REG_FEE_PRICE : 0);
+  const totalPrice = subtotal + (effectiveRegFee ? REG_FEE_PRICE : 0);
   const planValid =
     plan === "package" ||
     (plan === "drop_in" && dropInDates.length > 0);
@@ -83,7 +86,7 @@ export default function NinjaTrainingRegister() {
 
     const planLabel =
       plan === "package"
-        ? "5-session package ($120)"
+        ? `5-session package ($${PACKAGE_PRICE + REG_FEE_PRICE}, includes mask & materials)`
         : `Drop-in: ${dropInDates
             .map((d) => CLASS_DATES.find((c) => c.iso === d)?.label || d)
             .join(", ")} ($${dropInDates.length * DROP_IN_PRICE})`;
@@ -96,7 +99,7 @@ export default function NinjaTrainingRegister() {
         _subject: `🥷 Ninja Training Registration: ${form.childName}`,
         Camp: "Intuitive Ninja Training",
         Plan: planLabel,
-        "Registration Fee": registrationFee ? "Yes ($30)" : "No",
+        "Registration Fee": effectiveRegFee ? "Yes ($30)" : "No",
         Total: `$${totalPrice}`,
         "Child Name": form.childName,
         "Child Date of Birth": form.childDob || "Not provided",
@@ -130,7 +133,7 @@ export default function NinjaTrainingRegister() {
         body: JSON.stringify({
           plan,
           dropInDates: plan === "drop_in" ? dropInDates : undefined,
-          registrationFee,
+          registrationFee: effectiveRegFee,
           childName: form.childName,
           parentName: form.parentName,
           parentEmail: form.email,
@@ -272,9 +275,11 @@ export default function NinjaTrainingRegister() {
                 </div>
                 <div className="flex-1">
                   <p className="font-body text-sm font-semibold text-charcoal">5-Session Package</p>
-                  <p className="font-body text-xs text-charcoal-light">All 5 Tuesdays, Jun 16 – Jul 14</p>
+                  <p className="font-body text-xs text-charcoal-light">
+                    All 5 Tuesdays, Jun 16 – Jul 14 &middot; Includes mask &amp; materials
+                  </p>
                 </div>
-                <span className="font-body text-sm font-medium text-olive">${PACKAGE_PRICE}</span>
+                <span className="font-body text-sm font-medium text-olive">${PACKAGE_PRICE + REG_FEE_PRICE}</span>
               </button>
 
               <button
@@ -348,34 +353,35 @@ export default function NinjaTrainingRegister() {
               </div>
             )}
 
-            <div className="mt-6 rounded-xl border border-olive/15 bg-cream p-5">
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={registrationFee}
-                  onChange={(e) => setRegistrationFee(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 cursor-pointer accent-olive"
-                />
-                <div className="flex-1">
-                  <p className="font-body text-sm font-semibold text-charcoal">
-                    Add $30 one-time registration fee
-                  </p>
-                  <p className="mt-0.5 font-body text-xs text-charcoal-light">
-                    Covers mask &amp; materials. Uncheck if you&apos;ve already paid this for a previous cohort.
-                  </p>
-                </div>
-                <span className="font-body text-sm font-medium text-olive">${REG_FEE_PRICE}</span>
-              </label>
-            </div>
+            {plan === "drop_in" && (
+              <div className="mt-6 rounded-xl border border-olive/15 bg-cream p-5">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={registrationFee}
+                    onChange={(e) => setRegistrationFee(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 cursor-pointer accent-olive"
+                  />
+                  <div className="flex-1">
+                    <p className="font-body text-sm font-semibold text-charcoal">
+                      Add $30 one-time registration fee
+                    </p>
+                    <p className="mt-0.5 font-body text-xs text-charcoal-light">
+                      Covers mask &amp; materials. Uncheck if you&apos;ve already paid this for a previous cohort.
+                    </p>
+                  </div>
+                  <span className="font-body text-sm font-medium text-olive">${REG_FEE_PRICE}</span>
+                </label>
+              </div>
+            )}
 
             {(plan === "package" || dropInDates.length > 0) && (
               <div className="mt-6 rounded-xl bg-olive/10 px-5 py-4">
                 <div className="flex items-center justify-between">
                   <span className="font-body text-sm font-medium text-charcoal">
                     {plan === "package"
-                      ? "5-Session Package"
-                      : `${dropInDates.length} ${dropInDates.length === 1 ? "drop-in" : "drop-ins"}`}
-                    {registrationFee ? " + registration fee" : ""}
+                      ? "5-Session Package (includes mask & materials)"
+                      : `${dropInDates.length} ${dropInDates.length === 1 ? "drop-in" : "drop-ins"}${effectiveRegFee ? " + registration fee" : ""}`}
                   </span>
                   <span className="font-serif text-xl font-medium text-olive">
                     ${totalPrice}
@@ -791,7 +797,7 @@ export default function NinjaTrainingRegister() {
                     .join(", ")}
                 </p>
               )}
-              {registrationFee && (
+              {effectiveRegFee && (
                 <div className="flex items-center justify-between font-body text-sm text-charcoal">
                   <span>Registration fee (mask &amp; materials)</span>
                   <span className="tabular-nums">${REG_FEE_PRICE}</span>

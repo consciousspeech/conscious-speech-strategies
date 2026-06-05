@@ -46,9 +46,6 @@ export default function Programs() {
                 <span className="inline-block rounded-full bg-sage/90 px-4 py-1.5 font-body text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
                   Summer Camp
                 </span>
-                <span className="inline-block rounded-full bg-peach/90 px-4 py-1.5 font-body text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                  🐦 Early Bird Pricing
-                </span>
               </div>
             </div>
 
