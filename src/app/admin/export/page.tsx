@@ -153,10 +153,35 @@ export default function ExportPage() {
         dataRows.push(row);
       }
 
+      // Compute age from DOB (years + months) for the report header
+      let dobLabel = "";
+      if (student.date_of_birth) {
+        const dob = new Date(student.date_of_birth + "T00:00:00");
+        const ref = new Date(dateTo + "T00:00:00");
+        let years = ref.getFullYear() - dob.getFullYear();
+        let months = ref.getMonth() - dob.getMonth();
+        if (ref.getDate() < dob.getDate()) months -= 1;
+        if (months < 0) {
+          years -= 1;
+          months += 12;
+        }
+        dobLabel = `${dob.toLocaleDateString()} (Age ${years} yr ${months} mo)`;
+      }
+
+      const fmtDate = (iso: string | null) =>
+        iso ? new Date(iso + "T00:00:00").toLocaleDateString() : "";
+
       const wsData = [
         [`Student: ${student.name}`],
+        [`Student #: ${student.student_number || ""}`],
+        [`Date of Birth: ${dobLabel}`],
+        [`Grade: ${student.grade || ""}`],
+        [`Teacher: ${student.teacher || ""}`],
         [`School: ${student.school?.name || ""}`],
-        [`IEP Date: ${student.iep_date ? new Date(student.iep_date + "T00:00:00").toLocaleDateString() : "N/A"}`],
+        [`Eligibility: ${student.eligibility || ""}`],
+        [`Service Minutes: ${student.service_minutes || ""}`],
+        [`IEP Date: ${fmtDate(student.iep_date)}`],
+        [`IEP Re-Eval Date: ${fmtDate(student.iep_re_eval_date)}`],
         [`Report Period: ${new Date(dateFrom + "T00:00:00").toLocaleDateString()} \u2014 ${new Date(dateTo + "T00:00:00").toLocaleDateString()}`],
         [],
         headerRow,
