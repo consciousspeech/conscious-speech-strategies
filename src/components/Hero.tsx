@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useReveal } from "@/hooks/useReveal";
 
 export default function Hero() {
@@ -85,48 +84,7 @@ export default function Hero() {
         </p>
       </div>
 
-      {/* Offset accent image — editorial asymmetric placement */}
-      <div className="fade-in delay-5 pointer-events-none absolute -bottom-16 right-[6%] z-20 hidden lg:block">
-        <div className="relative">
-          {/* Decorative sage ring behind image */}
-          <div className="absolute -inset-3 rounded-[2rem] border border-sage/20" />
-          {/* Soft shadow glow */}
-          <div className="absolute -inset-1 rounded-[1.5rem] bg-sage/5 blur-xl" />
-          {/* The image */}
-          <div className="relative h-[320px] w-[240px] overflow-hidden rounded-[1.5rem] shadow-2xl shadow-charcoal/10">
-            <Image
-              src="/images/rachel-child-3.png"
-              alt="Rachel — speech-language pathologist"
-              fill
-              className="object-cover object-[50%_20%]"
-              sizes="240px"
-              priority
-            />
-            {/* Subtle bottom gradient for blending */}
-            <div className="absolute inset-0 bg-gradient-to-t from-cream/30 via-transparent to-transparent" />
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile version of accent image — centered below CTA */}
-      <div className="fade-in delay-5 absolute -bottom-12 left-1/2 z-20 -translate-x-1/2 lg:hidden">
-        <div className="relative">
-          <div className="absolute -inset-2 rounded-2xl border border-sage/15" />
-          <div className="relative h-[200px] w-[150px] overflow-hidden rounded-2xl shadow-xl shadow-charcoal/10">
-            <Image
-              src="/images/rachel-child-3.png"
-              alt="Rachel — speech-language pathologist"
-              fill
-              className="object-cover object-[50%_20%]"
-              sizes="150px"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-cream/30 via-transparent to-transparent" />
-          </div>
-        </div>
-      </div>
-
-      {/* Scroll indicator — repositioned to the left on desktop to balance the image */}
+      {/* Scroll indicator */}
       <div className="fade-in delay-6 absolute bottom-8 left-1/2 z-10 -translate-x-1/2 hidden lg:flex lg:left-[8%] lg:translate-x-0">
         <div className="flex flex-col items-center gap-2">
           <span className="font-body text-[10px] uppercase tracking-[0.2em] text-charcoal-light/40">

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useReveal } from "@/hooks/useReveal";
 
 const pillars = [
@@ -112,13 +113,28 @@ export default function Approach() {
           ))}
         </div>
 
-        {/* Quote */}
-        <div className="fade-up mx-auto mt-20 max-w-2xl text-center">
-          <blockquote className="font-serif text-2xl font-light italic leading-relaxed text-charcoal-light md:text-3xl">
-            &ldquo;Join us on a journey where communication transforms into a
-            vibrant expression of self, enriching lives and building bridges
-            that span far beyond words.&rdquo;
-          </blockquote>
+        {/* Editorial image + quote */}
+        <div className="mx-auto mt-24 grid max-w-5xl items-center gap-10 md:grid-cols-5 md:gap-16">
+          <div className="fade-up relative md:col-span-2">
+            <div className="absolute -inset-3 rounded-[2rem] border border-sage/20" />
+            <div className="absolute -inset-1 rounded-[1.5rem] bg-sage/5 blur-xl" />
+            <div className="relative aspect-[4/3] overflow-hidden rounded-[1.5rem] shadow-xl shadow-charcoal/10">
+              <Image
+                src="/images/rachel-with-child.jpg"
+                alt="Rachel sharing a playful moment with a child"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 40vw"
+              />
+            </div>
+          </div>
+          <div className="fade-up delay-1 md:col-span-3">
+            <blockquote className="font-serif text-2xl font-light italic leading-relaxed text-charcoal-light md:text-3xl">
+              &ldquo;Join us on a journey where communication transforms into a
+              vibrant expression of self, enriching lives and building bridges
+              that span far beyond words.&rdquo;
+            </blockquote>
+          </div>
         </div>
       </div>
     </section>
