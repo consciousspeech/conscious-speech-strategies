@@ -98,7 +98,24 @@ export default function ExportPage() {
       });
       headerRow.push("Notes");
 
-      const dataRows = (sessions || []).map((session: Record<string, unknown>) => {
+      // Build session rows in date order, inserting an "IEP separator"
+      // row at every IEP-year transition so the reader can see exactly
+      // where the new IEP took effect.
+      const dataRows: (string | number)[][] = [];
+      let prevIepYear: string | null | undefined = undefined;
+      for (const session of (sessions || []) as Record<string, unknown>[]) {
+        const iepYear = (session.iep_year as string | null) ?? null;
+        if (prevIepYear !== undefined && prevIepYear !== iepYear) {
+          const label = iepYear
+            ? `── New IEP starts: ${iepYear} ──`
+            : "── Current IEP ──";
+          const sep: (string | number)[] = [label];
+          for (let i = 0; i < goals.length; i++) sep.push("");
+          sep.push("");
+          dataRows.push(sep);
+        }
+        prevIepYear = iepYear;
+
         const row: (string | number)[] = [
           new Date((session.date as string) + "T00:00:00").toLocaleDateString(),
         ];
@@ -133,8 +150,8 @@ export default function ExportPage() {
           }
         });
         row.push((session.notes as string) || "");
-        return row;
-      });
+        dataRows.push(row);
+      }
 
       const wsData = [
         [`Student: ${student.name}`],
