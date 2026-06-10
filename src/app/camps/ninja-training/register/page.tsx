@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import CampWaiver, { WAIVER_VERSION, isWaiverValid } from "@/components/camps/CampWaiver";
 
 const steps = ["Plan", "Child Info", "Background", "Contact", "Waiver", "Review"];
+
+// Comp registration: families with this token in the URL
+// (?comp=NINJA-COMP-2026) skip Stripe checkout entirely. Useful for a few
+// invited families who shouldn't pay. Rotate the value if it leaks.
+const COMP_TOKEN = "NINJA-COMP-2026";
 
 // All 5 class dates for the summer 2026 Ninja Training cohort.
 const CLASS_DATES: { iso: string; label: string }[] = [
@@ -22,7 +28,17 @@ const REG_FEE_PRICE = 30;
 
 type Plan = "package" | "drop_in";
 
-export default function NinjaTrainingRegister() {
+export default function NinjaTrainingRegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <NinjaTrainingRegister />
+    </Suspense>
+  );
+}
+
+function NinjaTrainingRegister() {
+  const searchParams = useSearchParams();
+  const isComp = searchParams.get("comp") === COMP_TOKEN;
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [plan, setPlan] = useState<Plan>("package");
@@ -96,11 +112,12 @@ export default function NinjaTrainingRegister() {
     localStorage.setItem(
       "campRegistration",
       JSON.stringify({
-        _subject: `🥷 Ninja Training Registration: ${form.childName}`,
+        _subject: `${isComp ? "🎟️ COMP " : "🥷 "}Ninja Training Registration: ${form.childName}`,
         Camp: "Intuitive Ninja Training",
+        ...(isComp && { "Comp Registration": "Yes (no payment collected)" }),
         Plan: planLabel,
         "Registration Fee": effectiveRegFee ? "Yes ($30)" : "No",
-        Total: `$${totalPrice}`,
+        Total: isComp ? `$0 (comp)` : `$${totalPrice}`,
         "Child Name": form.childName,
         "Child Date of Birth": form.childDob || "Not provided",
         Address: form.address,
@@ -125,6 +142,14 @@ export default function NinjaTrainingRegister() {
         "Waiver Agreed": waiverAgreed ? "Yes" : "No",
       })
     );
+
+    // Comp registrations bypass Stripe — go straight to the success page,
+    // which submits the localStorage payload to Formspree the same way a
+    // paid registration would.
+    if (isComp) {
+      window.location.href = "/camps/registration-success";
+      return;
+    }
 
     try {
       const res = await fetch("/api/checkout/ninja", {
@@ -811,9 +836,9 @@ export default function NinjaTrainingRegister() {
 
             <div className="mt-6 rounded-xl bg-olive/8 p-5">
               <p className="font-body text-sm leading-relaxed text-charcoal-light">
-                By proceeding to payment, you confirm that the information above
-                is accurate. After payment, Rachel will reach out to confirm
-                your child&apos;s spot.
+                {isComp
+                  ? "By submitting, you confirm that the information above is accurate. Rachel will reach out to confirm your child's spot."
+                  : "By proceeding to payment, you confirm that the information above is accurate. After payment, Rachel will reach out to confirm your child's spot."}
               </p>
             </div>
 
@@ -842,7 +867,7 @@ export default function NinjaTrainingRegister() {
                   </>
                 ) : (
                   <>
-                    Pay ${totalPrice}
+                    {isComp ? "Submit Registration" : `Pay $${totalPrice}`}
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
