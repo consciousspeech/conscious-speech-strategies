@@ -88,7 +88,8 @@ export default function PrintableTimesheet({
   const [position, setPosition] = useState("");
 
   // Build a row per weekday (Mon–Fri) in the period. Saturdays and Sundays
-  // are skipped — most clinical work happens on weekdays.
+  // are skipped — UNLESS hours were actually logged that weekend day, in
+  // which case the row is included so the work shows up.
   const dayRows: DayRow[] = useMemo(() => {
     const start = new Date(timesheet.period_start + "T00:00:00Z");
     const end = new Date(timesheet.period_end + "T00:00:00Z");
@@ -104,9 +105,9 @@ export default function PrintableTimesheet({
       d.setUTCDate(d.getUTCDate() + 1)
     ) {
       const dow = d.getUTCDay(); // 0 = Sun, 6 = Sat
-      if (dow === 0 || dow === 6) continue;
       const iso = d.toISOString().slice(0, 10);
       const entries = byDate.get(iso) || [];
+      if ((dow === 0 || dow === 6) && entries.length === 0) continue;
       const sortedIn = entries.map((e) => e.time_in).filter(Boolean) as string[];
       const sortedOut = entries.map((e) => e.time_out).filter(Boolean) as string[];
       sortedIn.sort();
