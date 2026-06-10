@@ -19,6 +19,7 @@ export default function HoursPage() {
   const [tsDateFrom, setTsDateFrom] = useState("");
   const [tsDateTo, setTsDateTo] = useState("");
   const [tsSchoolId, setTsSchoolId] = useState("");
+  const [tsStaffId, setTsStaffId] = useState("");
   const [submittingTs, setSubmittingTs] = useState(false);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
@@ -123,23 +124,40 @@ export default function HoursPage() {
                 {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
+            {isAdmin && (
+              <div>
+                <label className="block text-[12px] font-medium text-slate-500 mb-1">Staff</label>
+                <select value={tsStaffId} onChange={(e) => setTsStaffId(e.target.value)}
+                  className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white outline-none transition-all cursor-pointer">
+                  <option value="">Myself</option>
+                  {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
             <button disabled={!tsDateFrom || !tsDateTo || submittingTs} onClick={async () => {
               setSubmittingTs(true);
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) { setSubmittingTs(false); return; }
 
+              // Admin can submit on behalf of any staff member; otherwise self
+              const targetUserId = (isAdmin && tsStaffId) ? tsStaffId : user.id;
+              const targetStaffName = (isAdmin && tsStaffId)
+                ? (staff.find(s => s.id === tsStaffId)?.name || "selected staff")
+                : "";
+
               let hoursQuery = supabase.from("hours")
                 .select("id, hours")
-                .eq("user_id", user.id)
+                .eq("user_id", targetUserId)
                 .gte("date", tsDateFrom)
                 .lte("date", tsDateTo);
               if (tsSchoolId) hoursQuery = hoursQuery.eq("school_id", tsSchoolId);
               const { data: rangeHours } = await hoursQuery;
 
               if (!rangeHours || rangeHours.length === 0) {
+                const who = targetStaffName ? ` for ${targetStaffName}` : "";
                 alert(tsSchoolId
-                  ? "No hours found in this date range for the selected school."
-                  : "No hours found in this date range.");
+                  ? `No hours found in this date range${who} for the selected school.`
+                  : `No hours found in this date range${who}.`);
                 setSubmittingTs(false);
                 return;
               }
@@ -147,7 +165,7 @@ export default function HoursPage() {
               const total = rangeHours.reduce((sum, h) => sum + Number(h.hours), 0);
 
               const { data: ts, error } = await supabase.from("timesheets").insert({
-                user_id: user.id,
+                user_id: targetUserId,
                 period_start: tsDateFrom,
                 period_end: tsDateTo,
                 status: "submitted",
@@ -177,6 +195,7 @@ export default function HoursPage() {
               setTsDateFrom("");
               setTsDateTo("");
               setTsSchoolId("");
+              setTsStaffId("");
             }}
               className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-50 cursor-pointer">
               {submittingTs ? "Submitting..." : "Submit"}
