@@ -23,7 +23,11 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const submittedDate = invoice.submitted_date as string | null;
+  // Local state so an optimistic update lets the printed view see the new
+  // submitted_date immediately, before router.refresh() has re-rendered.
+  const [submittedDate, setSubmittedDate] = useState<string | null>(
+    (invoice.submitted_date as string | null) || null
+  );
 
   const totalHours = lines.reduce(
     (sum, l) => sum + Number(l.hours),
@@ -84,6 +88,8 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
 
   async function handleSubmitAndPrint() {
     const today = new Date().toISOString().split("T")[0];
+    // Optimistically update local state so the Due Date renders before print
+    setSubmittedDate(today);
     await supabase
       .from("invoices")
       .update({
