@@ -69,7 +69,9 @@ export async function POST(request: Request) {
 
     const session = await stripe.checkout.sessions.create({
       line_items: lineItems,
-      ...(discounts.length > 0 ? { discounts } : {}),
+      ...(discounts.length > 0
+        ? { discounts }
+        : { allow_promotion_codes: true }),
       mode: "payment",
       success_url: `${origin}/camps/registration-success`,
       cancel_url: `${origin}/camps/mind-body-speech/register`,
