@@ -10,6 +10,7 @@ interface HourEntry {
   date: string;
   hours: number;
   description: string | null;
+  category: string | null;
   profile: { name: string } | null;
   rate: number;
 }
@@ -61,6 +62,7 @@ export default function NewInvoicePage() {
           date: h.date as string,
           hours: Number(h.hours),
           description: h.description as string | null,
+          category: h.category as string | null,
           profile: h.profile as { name: string } | null,
           rate: Number((h.profile as Record<string, unknown>)?.external_rate) || Number((h.profile as Record<string, unknown>)?.rate_per_hour) || 75,
         }))
@@ -124,6 +126,7 @@ export default function NewInvoicePage() {
           rate: entry?.rate || 75,
           amount: Number(h.hours) * (entry?.rate || 75),
           description: entry?.description,
+          category: entry?.category,
         };
       });
 

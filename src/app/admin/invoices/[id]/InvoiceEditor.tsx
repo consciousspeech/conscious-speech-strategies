@@ -5,12 +5,19 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 
+// Schools where the invoice line column should show the work category
+// (e.g. "Speech Lang TX", "IEP Meeting Prep") instead of the staff name.
+const SLAM_TAMPA_NAMES = ["SLAM Tampa Elem", "SLAM Tampa Middle/High"];
+
 interface Props {
   invoice: Record<string, unknown>;
   lines: Record<string, unknown>[];
 }
 
 export default function InvoiceEditor({ invoice, lines }: Props) {
+  const schoolName =
+    ((invoice.school as Record<string, unknown>)?.name as string) || "";
+  const useCategoryColumn = SLAM_TAMPA_NAMES.includes(schoolName);
   const supabase = createClient();
   const router = useRouter();
 
@@ -315,7 +322,7 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                   Date
                 </th>
                 <th className="pb-3 text-[10px] text-sage-dark uppercase tracking-widest font-semibold">
-                  Staff
+                  {useCategoryColumn ? "Category" : "Staff"}
                 </th>
                 <th className="pb-3 text-[10px] text-sage-dark uppercase tracking-widest font-semibold">
                   Hours
@@ -349,8 +356,13 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                       })}
                     </td>
                     <td className="px-0 py-2.5 text-charcoal-light">
-                      {((line.profile as Record<string, unknown>)
-                        ?.name as string) || "\u2014"}
+                      {useCategoryColumn
+                        ? ((line.category as string) ||
+                            ((line.profile as Record<string, unknown>)
+                              ?.name as string) ||
+                            "\u2014")
+                        : ((line.profile as Record<string, unknown>)
+                            ?.name as string) || "\u2014"}
                     </td>
                     <td className="px-0 py-2.5 text-charcoal tabular-nums">
                       {Number(line.hours).toFixed(2)}
