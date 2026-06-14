@@ -409,7 +409,7 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
         </div>
 
         {/* Payable to */}
-        <div className="px-8 pb-6">
+        <div className="px-8 pb-6 avoid-page-break">
           <p className="text-[10px] text-sage-dark uppercase tracking-widest font-semibold mb-1">
             Make Checks Payable To
           </p>
@@ -420,7 +420,7 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
 
         {/* Notes */}
         {notes && (
-          <div className="px-8 pb-6">
+          <div className="px-8 pb-6 avoid-page-break">
             <p className="text-[10px] text-sage-dark uppercase tracking-widest font-semibold mb-2">
               Notes
             </p>
@@ -431,7 +431,7 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
         )}
 
         {/* Footer */}
-        <div className="px-8 py-5 border-t border-sage/20 bg-cream/30 print:bg-cream/40 rounded-b-xl print:rounded-none">
+        <div className="px-8 py-5 border-t border-sage/20 bg-cream/30 print:bg-cream/40 rounded-b-xl print:rounded-none avoid-page-break">
           <p className="text-center text-xs text-charcoal-light/60">
             Thank you for your partnership in supporting our students.
           </p>

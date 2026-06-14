@@ -207,4 +207,25 @@ body {
     margin: 0.5in;
     size: letter;
   }
+
+  /* Table page-break handling so long invoices don't lose rows at the page
+     boundary. tr break-inside: avoid keeps each row intact; thead/tfoot
+     display rules repeat the header and keep the total row anchored. */
+  table { page-break-inside: auto; }
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: auto;
+  }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+
+  /* Keep small content blocks together (Payable To, Notes, Footer, signature
+     blocks) so they don't split across pages. */
+  blockquote,
+  figure,
+  .avoid-page-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 }
