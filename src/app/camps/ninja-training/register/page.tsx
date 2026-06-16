@@ -227,6 +227,17 @@ function NinjaTrainingRegister() {
           </p>
         </div>
 
+        {isComp && (
+          <div className="mb-8 rounded-2xl border border-olive/30 bg-olive/10 px-6 py-5 text-center">
+            <p className="mb-1 font-body text-[11px] font-bold uppercase tracking-wider text-olive">
+              🎟️ Comp Registration
+            </p>
+            <p className="font-body text-sm text-charcoal">
+              Your child&apos;s spot is on the house &mdash; <span className="font-semibold">no payment will be collected.</span> Please still pick the plan that reflects how often they&apos;ll attend, fill out the rest of the form, and sign the waiver. At the end you&apos;ll see <span className="font-semibold">$0</span> and the registration will complete without a Stripe checkout.
+            </p>
+          </div>
+        )}
+
         {/* Progress bar */}
         {step < steps.length && (
           <div className="mb-10">
