@@ -146,9 +146,13 @@ export default function NewInvoicePage() {
       await supabase.from("invoice_lines").insert(lines);
     }
 
-    // Insert any late fees / adjustments as additional zero-hour lines
+    // Insert any late fees / adjustments as additional zero-hour lines.
+    // Negative amounts are allowed for overpayment credits or refunds.
     const feeLines = fees
-      .filter((f) => f.description.trim() && parseFloat(f.amount) > 0)
+      .filter((f) => {
+        const amt = parseFloat(f.amount);
+        return f.description.trim() && !isNaN(amt) && amt !== 0;
+      })
       .map((f) => ({
         invoice_id: invoice.id,
         user_id: null,

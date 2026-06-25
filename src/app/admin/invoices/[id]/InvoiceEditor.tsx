@@ -345,6 +345,11 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                   const rowClass =
                     i % 2 === 0 ? "bg-cream/30 print:bg-cream/40" : "";
                   if (isFee) {
+                    const amt = Number(line.amount);
+                    const formatted =
+                      amt < 0
+                        ? `-$${Math.abs(amt).toFixed(2)}`
+                        : `$${amt.toFixed(2)}`;
                     return (
                       <tr key={line.id as string} className={rowClass}>
                         <td className="px-0 py-2.5 text-charcoal tabular-nums">
@@ -359,8 +364,8 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                         >
                           {(line.description as string) || "Fee"}
                         </td>
-                        <td className="px-0 py-2.5 text-charcoal font-medium text-right tabular-nums">
-                          ${Number(line.amount).toFixed(2)}
+                        <td className={`px-0 py-2.5 font-medium text-right tabular-nums ${amt < 0 ? "text-emerald-700" : "text-charcoal"}`}>
+                          {formatted}
                         </td>
                       </tr>
                     );
