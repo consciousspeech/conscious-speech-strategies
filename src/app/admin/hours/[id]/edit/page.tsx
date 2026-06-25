@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useParams } from "next/navigation";
 import { computeHours } from "@/lib/utils";
-import type { School } from "@/lib/supabase/types";
+import type { Profile, School } from "@/lib/supabase/types";
 
 const SLAM_TAMPA_NAMES = ["SLAM Tampa Elem", "SLAM Tampa Middle/High"];
 const SLAM_TAMPA_CATEGORIES = [
@@ -25,10 +25,13 @@ export default function EditHoursPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [schools, setSchools] = useState<School[]>([]);
+  const [staff, setStaff] = useState<Profile[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
+    user_id: "",
     school_id: "",
     date: "",
     time_in: "",
@@ -50,14 +53,31 @@ export default function EditHoursPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: entry }, { data: sc }] = await Promise.all([
+      const { data: { user } } = await supabase.auth.getUser();
+      let adminFlag = false;
+      if (user) {
+        const { data: me } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        adminFlag = me?.role === "admin";
+      }
+      setIsAdmin(adminFlag);
+
+      const [{ data: entry }, { data: sc }, { data: profiles }] = await Promise.all([
         supabase.from("hours").select("*").eq("id", id).single(),
         supabase.from("schools").select("*").order("name"),
+        adminFlag
+          ? supabase.from("profiles").select("*").order("name")
+          : Promise.resolve({ data: null as Profile[] | null }),
       ]);
 
       if (sc) setSchools(sc);
+      if (profiles) setStaff(profiles);
       if (entry) {
         setForm({
+          user_id: entry.user_id || "",
           school_id: entry.school_id || "",
           date: entry.date || "",
           time_in: entry.time_in || "",
@@ -80,6 +100,7 @@ export default function EditHoursPage() {
     const hoursValue = isSlamTampa ? parseFloat(form.hours) : totalHours!;
 
     const { error } = await supabase.from("hours").update({
+      ...(isAdmin && form.user_id ? { user_id: form.user_id } : {}),
       school_id: form.school_id,
       date: form.date,
       hours: hoursValue,
@@ -121,6 +142,22 @@ export default function EditHoursPage() {
       <h1 className="text-xl font-semibold text-slate-900 tracking-tight mb-6">Edit Hours</h1>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-6 space-y-4">
+        {isAdmin && (
+          <div>
+            <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Staff *</label>
+            <select
+              required
+              value={form.user_id}
+              onChange={(e) => setForm({ ...form, user_id: e.target.value })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="">Select staff...</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-[13px] font-medium text-slate-700 mb-1.5">School *</label>
           <select required value={form.school_id} onChange={(e) => {
