@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 // Mind Body Speech camp pricing
 const EARLY_BIRD_PRICE_ID = "price_1TTpd0PhLMokpUfBoML067Y2"; // $275/week
 const REGULAR_PRICE_ID = "price_1T6eSMPhLMokpUfBBOvtybJQ"; // $300/week
-const BUNDLE_PRICE_ID = "price_1TTpd1PhLMokpUfBvWLi1YCS"; // $800 for all 3 weeks
 
 // Early bird cutoff: May 10, 2026 at midnight ET
 const EARLY_BIRD_CUTOFF = new Date("2026-05-10T04:00:00Z");
@@ -13,7 +12,6 @@ const EARLY_BIRD_CUTOFF = new Date("2026-05-10T04:00:00Z");
 const FAM_COUPONS: Record<number, string> = {
   1: "fam_1week",   // $30 off
   2: "fam_2weeks",  // $60 off
-  3: "fam_3weeks",  // $90 off
 };
 
 const FAM_CODE = "CSSFAMILY";
@@ -39,21 +37,17 @@ export async function POST(request: Request) {
 
   const { quantity, selectedWeeks, childName, parentName, parentEmail, parentPhone, promoCode } = body;
 
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 3) {
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2) {
     return NextResponse.json({ error: "Invalid quantity" }, { status: 400 });
   }
 
   const isEarlyBird = new Date() < EARLY_BIRD_CUTOFF;
-  const isBundle = quantity === 3;
 
   // Determine line items
-  let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
-  if (isBundle) {
-    lineItems = [{ price: BUNDLE_PRICE_ID, quantity: 1 }];
-  } else {
-    const priceId = isEarlyBird ? EARLY_BIRD_PRICE_ID : REGULAR_PRICE_ID;
-    lineItems = [{ price: priceId, quantity }];
-  }
+  const priceId = isEarlyBird ? EARLY_BIRD_PRICE_ID : REGULAR_PRICE_ID;
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    { price: priceId, quantity },
+  ];
 
   // Apply F&F discount if valid promo code
   const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];

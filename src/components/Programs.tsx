@@ -54,7 +54,7 @@ export default function Programs() {
                 Mind. Body. Speech.
               </h3>
               <p className="mb-5 font-body text-[15px] leading-[1.8] text-charcoal-light">
-                Three weeks of creative group speech and language therapy sessions
+                Two weeks of creative group speech and language therapy sessions
                 designed for rising 1st&ndash;5th graders looking to close the
                 summer gap on their IEP goals and improve speech, language, social,
                 literacy, and executive functioning skills.
@@ -91,7 +91,7 @@ export default function Programs() {
                     Duration
                   </p>
                   <p className="mt-0.5 font-body text-sm text-charcoal">
-                    3 Week Series
+                    2 Week Series
                   </p>
                 </div>
               </div>

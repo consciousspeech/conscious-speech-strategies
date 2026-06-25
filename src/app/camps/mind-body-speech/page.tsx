@@ -39,7 +39,6 @@ export default function MindBodySpeechCamp() {
   const weeks = [
     { label: "Week 1", dates: "June 15–18" },
     { label: "Week 2", dates: "June 22–25" },
-    { label: "Week 3", dates: "June 29 – July 2" },
   ];
 
   return (
@@ -120,7 +119,7 @@ export default function MindBodySpeechCamp() {
               Mind. Body. <span className="italic">Speech.</span>
             </h1>
             <p className="mb-8 font-body text-lg leading-relaxed text-charcoal-light md:text-xl">
-              Three weeks of creative group speech and language therapy sessions
+              Two weeks of creative group speech and language therapy sessions
               designed for rising 1st&ndash;5th graders wanting to close the
               summer gap of their IEP and/or improve their speech, language,
               social, literacy, and executive functioning skills.
@@ -154,10 +153,10 @@ export default function MindBodySpeechCamp() {
                 Duration
               </p>
               <p className="mt-1 font-body text-sm font-medium text-charcoal">
-                3 Weeks
+                2 Weeks
               </p>
               <p className="font-body text-xs text-charcoal-light">
-                June 15 &ndash; July 2
+                June 15 &ndash; 25
               </p>
             </div>
             <div className="rounded-2xl bg-cream p-5 text-center">
@@ -168,7 +167,6 @@ export default function MindBodySpeechCamp() {
                 $300
               </p>
               <p className="font-body text-xs text-charcoal-light">per week</p>
-              <p className="font-body text-[10px] text-sage-dark font-semibold mt-0.5">$800 for all 3 weeks</p>
             </div>
           </div>
         </div>
@@ -182,7 +180,7 @@ export default function MindBodySpeechCamp() {
               Schedule
             </p>
             <h2 className="mb-10 font-serif text-3xl font-light text-charcoal md:text-4xl">
-              Three Weeks of <span className="italic">Growth</span>
+              Two Weeks of <span className="italic">Growth</span>
             </h2>
           </div>
 
@@ -435,8 +433,8 @@ export default function MindBodySpeechCamp() {
                 a: "Each session weaves together spirit activities (mindfulness, EFT tapping, breathing), mind activities (improv, literacy, music), and body activities (movement with props, sensory play) for a full, engaging experience.",
               },
               {
-                q: "Can my child attend just one or two weeks?",
-                a: "Yes! You can register for individual weeks or sign up for all three weeks at a discounted bundle rate of $800. Individual weeks are $300/week.",
+                q: "Can my child attend just one week?",
+                a: "Yes! You can register for either week individually or both weeks. Each week is $300.",
               },
               {
                 q: "What should my child bring?",

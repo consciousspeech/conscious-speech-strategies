@@ -10,14 +10,12 @@ const steps = ["Weeks", "Child Info", "Background", "Contact", "Waiver", "Review
 const weekOptions = [
   { id: 1, label: "Week 1", dates: "June 15–18" },
   { id: 2, label: "Week 2", dates: "June 22–25" },
-  { id: 3, label: "Week 3", dates: "June 29 – July 2" },
 ];
 
 // Early bird cutoff: May 10, 2026 at midnight ET
 const EARLY_BIRD_CUTOFF = new Date("2026-05-10T04:00:00Z");
 const EARLY_BIRD_PRICE = 275;
 const REGULAR_PRICE = 300;
-const BUNDLE_PRICE = 800;
 
 function useIsEarlyBird() {
   const [isEarlyBird] = useState(() => new Date() < EARLY_BIRD_CUTOFF);
@@ -76,8 +74,7 @@ export default function MindBodySpeechRegister() {
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  const isBundle = selectedWeeks.length === 3;
-  const totalPrice = isBundle ? BUNDLE_PRICE : selectedWeeks.length * perWeekPrice;
+  const totalPrice = selectedWeeks.length * perWeekPrice;
 
   async function handleSubmitAndPay() {
     setSubmitting(true);
@@ -256,14 +253,14 @@ export default function MindBodySpeechRegister() {
                   <span className="ml-2 font-normal text-charcoal-light line-through">${REGULAR_PRICE}</span>
                 </p>
                 <p className="mt-0.5 font-body text-xs text-charcoal-light">
-                  Register before May 10 to save! All 3 weeks for just ${BUNDLE_PRICE}.
+                  Register before May 10 to save.
                 </p>
               </div>
             )}
             {!isEarlyBird && (
               <div className="mb-6 rounded-xl bg-sage/10 px-5 py-3">
                 <p className="font-body text-sm font-semibold text-charcoal">
-                  ${REGULAR_PRICE}/week &mdash; All 3 weeks for ${BUNDLE_PRICE}
+                  ${REGULAR_PRICE}/week
                 </p>
               </div>
             )}
@@ -321,11 +318,6 @@ export default function MindBodySpeechRegister() {
                     ${totalPrice}
                   </span>
                 </div>
-                {isBundle && (
-                  <p className="mt-1 font-body text-xs text-sage-dark">
-                    🎉 3-week bundle saves you ${selectedWeeks.length * perWeekPrice - BUNDLE_PRICE}!
-                  </p>
-                )}
               </div>
             )}
 
@@ -807,9 +799,7 @@ export default function MindBodySpeechRegister() {
             <div className="mt-6 rounded-xl bg-sage/10 px-5 py-4">
               <div className="flex items-center justify-between">
                 <span className="font-body text-sm font-medium text-charcoal">
-                  {isBundle
-                    ? "3-week bundle"
-                    : `${selectedWeeks.length} ${selectedWeeks.length === 1 ? "week" : "weeks"} × $${perWeekPrice}`}
+                  {selectedWeeks.length} {selectedWeeks.length === 1 ? "week" : "weeks"} × ${perWeekPrice}
                 </span>
                 <span className="font-serif text-2xl font-medium text-sage-dark">
                   ${totalPrice}
