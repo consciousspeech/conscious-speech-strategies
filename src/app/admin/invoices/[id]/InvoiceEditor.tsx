@@ -337,14 +337,38 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
             </thead>
             <tbody>
               {lines.map(
-                (line: Record<string, unknown>, i: number) => (
+                (line: Record<string, unknown>, i: number) => {
+                  // Lines with 0 hours are fees / adjustments \u2014 render the
+                  // description across the middle columns instead of the
+                  // staff/category + hours + rate cells.
+                  const isFee = Number(line.hours) === 0;
+                  const rowClass =
+                    i % 2 === 0 ? "bg-cream/30 print:bg-cream/40" : "";
+                  if (isFee) {
+                    return (
+                      <tr key={line.id as string} className={rowClass}>
+                        <td className="px-0 py-2.5 text-charcoal tabular-nums">
+                          {new Date(line.date as string).toLocaleDateString(
+                            "en-US",
+                            { timeZone: "UTC", month: "short", day: "numeric" }
+                          )}
+                        </td>
+                        <td
+                          colSpan={3}
+                          className="px-0 py-2.5 text-charcoal italic"
+                        >
+                          {(line.description as string) || "Fee"}
+                        </td>
+                        <td className="px-0 py-2.5 text-charcoal font-medium text-right tabular-nums">
+                          ${Number(line.amount).toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  }
+                  return (
                   <tr
                     key={line.id as string}
-                    className={
-                      i % 2 === 0
-                        ? "bg-cream/30 print:bg-cream/40"
-                        : ""
-                    }
+                    className={rowClass}
                   >
                     <td className="px-0 py-2.5 text-charcoal tabular-nums">
                       {new Date(
@@ -374,7 +398,8 @@ export default function InvoiceEditor({ invoice, lines }: Props) {
                       ${Number(line.amount).toFixed(2)}
                     </td>
                   </tr>
-                )
+                  );
+                }
               )}
             </tbody>
             <tfoot>

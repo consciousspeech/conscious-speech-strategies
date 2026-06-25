@@ -25,8 +25,19 @@ export default function NewInvoicePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [hourEntries, setHourEntries] = useState<HourEntry[]>([]);
+  const [fees, setFees] = useState<{ description: string; amount: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  function addFee() {
+    setFees((prev) => [...prev, { description: "", amount: "" }]);
+  }
+  function updateFee(idx: number, field: "description" | "amount", value: string) {
+    setFees((prev) => prev.map((f, i) => (i === idx ? { ...f, [field]: value } : f)));
+  }
+  function removeFee(idx: number) {
+    setFees((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   useEffect(() => {
     supabase.from("schools").select("*").order("name").then(({ data }) => {
@@ -75,7 +86,9 @@ export default function NewInvoicePage() {
     setHourEntries((prev) => prev.map((h) => (h.id === id ? { ...h, rate } : h)));
   }
 
-  const totalAmount = hourEntries.reduce((sum, h) => sum + h.hours * h.rate, 0);
+  const hoursAmount = hourEntries.reduce((sum, h) => sum + h.hours * h.rate, 0);
+  const feesAmount = fees.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
+  const totalAmount = hoursAmount + feesAmount;
 
   async function handleSave() {
     if (hourEntries.length === 0) return;
@@ -131,6 +144,22 @@ export default function NewInvoicePage() {
       });
 
       await supabase.from("invoice_lines").insert(lines);
+    }
+
+    // Insert any late fees / adjustments as additional zero-hour lines
+    const feeLines = fees
+      .filter((f) => f.description.trim() && parseFloat(f.amount) > 0)
+      .map((f) => ({
+        invoice_id: invoice.id,
+        user_id: null,
+        date: dateTo,
+        hours: 0,
+        rate: 0,
+        amount: parseFloat(f.amount),
+        description: f.description.trim(),
+      }));
+    if (feeLines.length > 0) {
+      await supabase.from("invoice_lines").insert(feeLines);
     }
 
     router.push(`/admin/invoices/${invoice.id}`);
@@ -210,14 +239,72 @@ export default function NewInvoicePage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-slate-200 bg-slate-50/30">
-                    <td colSpan={2} className="px-5 py-3.5 text-right font-semibold text-slate-900">Totals:</td>
+                    <td colSpan={2} className="px-5 py-3.5 text-right font-semibold text-slate-900">Hours subtotal:</td>
                     <td className="px-5 py-3.5 font-bold text-slate-900 tabular-nums">{hourEntries.reduce((sum, h) => sum + h.hours, 0).toFixed(2)}</td>
                     <td></td>
-                    <td className="px-5 py-3.5 font-bold text-slate-900 text-base tabular-nums">${totalAmount.toFixed(2)}</td>
+                    <td className="px-5 py-3.5 font-bold text-slate-900 text-base tabular-nums">${hoursAmount.toFixed(2)}</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
+          </div>
+
+          {/* Late Fees & Adjustments */}
+          <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-semibold text-slate-900 text-[15px]">Late Fees &amp; Adjustments</h2>
+                <p className="text-[13px] text-slate-400 mt-0.5">Add late fees from previous invoices or other one-time charges.</p>
+              </div>
+              <button type="button" onClick={addFee}
+                className="text-[13px] font-medium text-teal-600 hover:text-teal-700 transition-colors cursor-pointer">
+                + Add Fee
+              </button>
+            </div>
+            {fees.length === 0 ? (
+              <p className="text-[13px] text-slate-400 italic">No additional fees.</p>
+            ) : (
+              <div className="space-y-3">
+                {fees.map((fee, idx) => (
+                  <div key={idx} className="flex gap-3 items-start">
+                    <input
+                      type="text"
+                      placeholder="Description (e.g. Late fee — Invoice #119)"
+                      value={fee.description}
+                      onChange={(e) => updateFee(idx, "description", e.target.value)}
+                      className={`${inputClass} flex-1`}
+                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={fee.amount}
+                        onChange={(e) => updateFee(idx, "amount", e.target.value)}
+                        className={`${inputClass} w-32 pl-7 tabular-nums`}
+                      />
+                    </div>
+                    <button type="button" onClick={() => removeFee(idx)}
+                      aria-label="Remove fee"
+                      className="flex-none w-10 h-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
+                      &#x2715;
+                    </button>
+                  </div>
+                ))}
+                <div className="border-t border-slate-200 pt-3 mt-3 flex items-center justify-between">
+                  <span className="text-[13px] font-semibold text-slate-700">Fees subtotal</span>
+                  <span className="text-[15px] font-bold text-slate-900 tabular-nums">${feesAmount.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Grand total */}
+          <div className="bg-teal-50 border border-teal-100 rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
+            <span className="text-[14px] font-semibold text-teal-700 uppercase tracking-wide">Invoice total</span>
+            <span className="text-[20px] font-bold text-teal-700 tabular-nums">${totalAmount.toFixed(2)}</span>
           </div>
 
           <div className="flex gap-3">
