@@ -25,14 +25,14 @@ export default function NewInvoicePage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [hourEntries, setHourEntries] = useState<HourEntry[]>([]);
-  const [fees, setFees] = useState<{ description: string; amount: string }[]>([]);
+  const [fees, setFees] = useState<{ date: string; description: string; amount: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   function addFee() {
-    setFees((prev) => [...prev, { description: "", amount: "" }]);
+    setFees((prev) => [...prev, { date: "", description: "", amount: "" }]);
   }
-  function updateFee(idx: number, field: "description" | "amount", value: string) {
+  function updateFee(idx: number, field: "date" | "description" | "amount", value: string) {
     setFees((prev) => prev.map((f, i) => (i === idx ? { ...f, [field]: value } : f)));
   }
   function removeFee(idx: number) {
@@ -156,7 +156,7 @@ export default function NewInvoicePage() {
       .map((f) => ({
         invoice_id: invoice.id,
         user_id: null,
-        date: dateTo,
+        date: f.date || dateTo,
         hours: 0,
         rate: 0,
         amount: parseFloat(f.amount),
@@ -272,6 +272,13 @@ export default function NewInvoicePage() {
                 {fees.map((fee, idx) => (
                   <div key={idx} className="flex gap-3 items-start">
                     <input
+                      type="date"
+                      value={fee.date}
+                      onChange={(e) => updateFee(idx, "date", e.target.value)}
+                      className={`${inputClass} w-40 tabular-nums`}
+                      title="Date for this fee (defaults to invoice end date if blank)"
+                    />
+                    <input
                       type="text"
                       placeholder="Description (e.g. Late fee — Invoice #119)"
                       value={fee.description}
@@ -283,7 +290,6 @@ export default function NewInvoicePage() {
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
                         placeholder="0.00"
                         value={fee.amount}
                         onChange={(e) => updateFee(idx, "amount", e.target.value)}
