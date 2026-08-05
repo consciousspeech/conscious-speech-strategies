@@ -6,20 +6,6 @@ import { useRouter, useParams } from "next/navigation";
 import { computeHours } from "@/lib/utils";
 import type { Profile, School } from "@/lib/supabase/types";
 
-const SLAM_TAMPA_NAMES = ["SLAM Tampa Elem", "SLAM Tampa Middle/High"];
-const SLAM_TAMPA_CATEGORIES = [
-  "Speech Lang TX",
-  "Therapy Prep",
-  "Caseload Scheduling/Management",
-  "IEP/Eval Meeting Prep/Paperwork",
-  "IEP/Eval/Conference Meeting",
-  "ESE Team Consult",
-  "Teacher/Parent Consult",
-  "Evals or Screenings",
-  "Training",
-  "Data Recording",
-];
-
 export default function EditHoursPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -37,19 +23,11 @@ export default function EditHoursPage() {
     time_in: "",
     time_out: "",
     description: "",
-    category: "",
-    hours: "",
   });
 
-  const selectedSchool = schools.find((s) => s.id === form.school_id);
-  const isSlamTampa = selectedSchool ? SLAM_TAMPA_NAMES.includes(selectedSchool.name) : false;
   const totalHours = computeHours(form.time_in, form.time_out);
   const timeError = form.time_in && form.time_out && totalHours === null ? "Time out must be after time in." : null;
-
-  const slamHours = parseFloat(form.hours);
-  const submitDisabled = isSlamTampa
-    ? !(slamHours > 0) || !form.category
-    : totalHours === null;
+  const submitDisabled = totalHours === null;
 
   useEffect(() => {
     async function load() {
@@ -83,8 +61,6 @@ export default function EditHoursPage() {
           time_in: entry.time_in || "",
           time_out: entry.time_out || "",
           description: entry.description || "",
-          category: entry.category || "",
-          hours: entry.hours != null ? String(entry.hours) : "",
         });
       }
       setLoading(false);
@@ -97,17 +73,15 @@ export default function EditHoursPage() {
     if (submitDisabled) return;
     setSaving(true);
 
-    const hoursValue = isSlamTampa ? parseFloat(form.hours) : totalHours!;
-
     const { error } = await supabase.from("hours").update({
       ...(isAdmin && form.user_id ? { user_id: form.user_id } : {}),
       school_id: form.school_id,
       date: form.date,
-      hours: hoursValue,
+      hours: totalHours!,
       time_in: form.time_in,
       time_out: form.time_out,
       description: form.description || null,
-      category: form.category || null,
+      category: null,
     }).eq("id", id);
 
     if (error) {
@@ -160,12 +134,7 @@ export default function EditHoursPage() {
         )}
         <div>
           <label className="block text-[13px] font-medium text-slate-700 mb-1.5">School *</label>
-          <select required value={form.school_id} onChange={(e) => {
-              const newId = e.target.value;
-              const newSchool = schools.find((s) => s.id === newId);
-              const newIsSlamTampa = newSchool ? SLAM_TAMPA_NAMES.includes(newSchool.name) : false;
-              setForm({ ...form, school_id: newId, category: newIsSlamTampa ? form.category : "" });
-            }}
+          <select required value={form.school_id} onChange={(e) => setForm({ ...form, school_id: e.target.value })}
             className={`${inputClass} cursor-pointer`}>
             <option value="">Select a school...</option>
             {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -190,44 +159,12 @@ export default function EditHoursPage() {
           </div>
         </div>
 
-        {isSlamTampa ? (
-          <>
-            <div>
-              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Category *</label>
-              <select required value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className={`${inputClass} cursor-pointer`}>
-                <option value="">Select category...</option>
-                {SLAM_TAMPA_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Hours *</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={form.hours}
-                onChange={(e) => setForm({ ...form, hours: e.target.value })}
-                placeholder="e.g. 1.5"
-                className={inputClass}
-              />
-            </div>
-            <div className="bg-teal-50 border border-teal-100 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
-              <span className="text-[12px] font-medium text-teal-700 uppercase tracking-wide">Total Hours</span>
-              <span className="text-teal-700 font-semibold tabular-nums text-[15px]">
-                {slamHours > 0 ? slamHours.toFixed(2) : "\u2014"}
-              </span>
-            </div>
-          </>
-        ) : (
-          <div className="bg-teal-50 border border-teal-100 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
-            <span className="text-[12px] font-medium text-teal-700 uppercase tracking-wide">Total Hours</span>
-            <span className="text-teal-700 font-semibold tabular-nums text-[15px]">
-              {totalHours !== null ? totalHours.toFixed(2) : timeError ? <span className="text-red-600 text-[12px] font-medium normal-case tracking-normal">{timeError}</span> : "\u2014"}
-            </span>
-          </div>
-        )}
+        <div className="bg-teal-50 border border-teal-100 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
+          <span className="text-[12px] font-medium text-teal-700 uppercase tracking-wide">Total Hours</span>
+          <span className="text-teal-700 font-semibold tabular-nums text-[15px]">
+            {totalHours !== null ? totalHours.toFixed(2) : timeError ? <span className="text-red-600 text-[12px] font-medium normal-case tracking-normal">{timeError}</span> : "—"}
+          </span>
+        </div>
 
         <div>
           <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Description</label>
