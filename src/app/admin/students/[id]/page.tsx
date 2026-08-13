@@ -86,23 +86,37 @@ export default async function StudentDetailPage({
           <h2 className="font-semibold text-slate-900 text-[15px]">Student Details</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 px-5 py-4 text-[13px]">
-          {[
-            ["Student #", student.student_number],
-            ["Grade", student.grade],
-            ["Teacher", student.teacher],
-            ["Eligibility", student.eligibility],
-            ["DOB", student.date_of_birth ? new Date(student.date_of_birth + "T00:00:00").toLocaleDateString() : null],
-            ["Re-Eval Date", student.iep_re_eval_date ? new Date(student.iep_re_eval_date + "T00:00:00").toLocaleDateString() : null],
-            ["Parent Phone", student.parent_phone],
-            ["Parent Phone 2", student.parent_phone_2],
-            ["Parent Email", student.parent_email],
-            ["Notes", student.notes],
-          ].filter(([, val]) => val).map(([label, val]) => (
-            <div key={label as string}>
-              <span className="text-slate-400">{label as string}: </span>
-              <span className="text-slate-700 font-medium">{val as string}</span>
-            </div>
-          ))}
+          {(() => {
+            const fmt = (iso: string | null | undefined) =>
+              iso ? new Date(iso + "T00:00:00").toLocaleDateString() : null;
+            // IEP Due = one year after the current IEP date
+            let iepDueLabel: string | null = null;
+            if (student.iep_date) {
+              const d = new Date(student.iep_date + "T00:00:00");
+              d.setFullYear(d.getFullYear() + 1);
+              iepDueLabel = d.toLocaleDateString();
+            }
+            const rows: [string, string | null][] = [
+              ["Student #", student.student_number],
+              ["Grade", student.grade],
+              ["Teacher", student.teacher],
+              ["Eligibility", student.eligibility],
+              ["DOB", fmt(student.date_of_birth)],
+              ["IEP Date", fmt(student.iep_date)],
+              ["IEP Due", iepDueLabel],
+              ["Re-Eval Date", fmt(student.iep_re_eval_date)],
+              ["Parent Phone", student.parent_phone],
+              ["Parent Phone 2", student.parent_phone_2],
+              ["Parent Email", student.parent_email],
+              ["Notes", student.notes],
+            ];
+            return rows.filter(([, val]) => val).map(([label, val]) => (
+              <div key={label}>
+                <span className="text-slate-400">{label}: </span>
+                <span className="text-slate-700 font-medium">{val}</span>
+              </div>
+            ));
+          })()}
         </div>
       </div>
 

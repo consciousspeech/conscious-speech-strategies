@@ -105,21 +105,25 @@ export default function NewSessionPage() {
     }
 
     if (occurred) {
-      // Insert session goals — flatten all variant entries
+      // Insert session goals — flatten all variant entries. Keep entries
+      // that have anecdotal notes or a named target even when no trials
+      // were counted (sometimes a goal is worked on qualitatively).
       const sessionGoals = goals
         .flatMap((g) => {
           const entries = goalData[g.id] || [];
           return entries.map((d) => {
             const correct = parseInt(d.correct) || 0;
             const total = parseInt(d.total) || 0;
-            if (total === 0 && correct === 0) return null;
+            const hasNotes = d.notes.trim().length > 0;
+            const hasTarget = d.target.trim().length > 0;
+            if (total === 0 && correct === 0 && !hasNotes && !hasTarget) return null;
             return {
               session_id: session.id,
               goal_id: g.id,
               correct_count: correct,
               total_count: total,
-              notes: d.notes || null,
-              target: d.target || null,
+              notes: d.notes.trim() || null,
+              target: d.target.trim() || null,
             };
           });
         })

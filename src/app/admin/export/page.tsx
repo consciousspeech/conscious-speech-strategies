@@ -137,10 +137,15 @@ export default function ExportPage() {
                   const target = (sg.target as string | null) || "";
                   const perf = (sg.performance_level as string | null) || "";
                   const notes = (sg.notes as string | null) || "";
-                  const score = `${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`;
+                  const total = Number(sg.total_count) || 0;
                   const parts: string[] = [];
                   if (target) parts.push(`${target}:`);
-                  parts.push(score);
+                  if (total > 0) {
+                    parts.push(`${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`);
+                  } else if (!target && !notes && !perf) {
+                    // Nothing meaningful to show \u2014 fall back to a dash.
+                    parts.push("\u2014");
+                  }
                   if (perf) parts.push(`\u2014 ${perf}`);
                   if (notes) parts.push(`\u2014 ${notes}`);
                   return parts.join(" ");
