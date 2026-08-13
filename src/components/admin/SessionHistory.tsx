@@ -25,6 +25,9 @@ interface SessionData {
   iep_year: string | null;
   occurred?: boolean;
   no_show_reason?: string | null;
+  service_time?: string | null;
+  service_type?: "pull_out" | "push_in" | null;
+  push_in_notes?: string | null;
   entered_by_profile: { name: string } | null;
   session_goals: SessionGoalData[];
 }
@@ -251,7 +254,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[13px] font-medium text-slate-900">
                         {formatLocalDate(session.date, {
                           weekday: "short",
@@ -260,6 +263,16 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                           year: "numeric",
                         })}
                       </p>
+                      {session.service_time && (
+                        <span className="text-[12px] text-slate-500 tabular-nums">
+                          {session.service_time}
+                        </span>
+                      )}
+                      {session.service_type === "push_in" && (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-teal-100 text-teal-700">
+                          Push-in
+                        </span>
+                      )}
                       {session.occurred === false && (
                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700">
                           Did not occur
@@ -306,6 +319,11 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                         </div>
                       ))}
                     </div>
+                  )}
+                  {session.push_in_notes && (
+                    <p className="text-xs text-teal-700 mt-2">
+                      <span className="font-medium">Classroom:</span> {session.push_in_notes}
+                    </p>
                   )}
                   {session.no_show_reason && (
                     <p className="text-xs text-amber-700 mt-2">

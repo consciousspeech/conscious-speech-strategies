@@ -18,6 +18,23 @@ export default function NewSessionPage() {
   const [saving, setSaving] = useState(false);
   const [occurred, setOccurred] = useState(true);
   const [noShowReason, setNoShowReason] = useState("");
+  const [serviceTime, setServiceTime] = useState("");
+  const [serviceType, setServiceType] = useState<"pull_out" | "push_in">("pull_out");
+  const [pushInNotes, setPushInNotes] = useState("");
+
+  // Hydrate last-used service time / type from localStorage so re-entry is fast
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("lastSessionServiceInfo");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { time?: string; type?: "pull_out" | "push_in" };
+        if (parsed.time) setServiceTime(parsed.time);
+        if (parsed.type === "pull_out" || parsed.type === "push_in") setServiceType(parsed.type);
+      }
+    } catch {
+      // ignore malformed storage
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -94,6 +111,9 @@ export default function NewSessionPage() {
         notes: notes || null,
         occurred,
         no_show_reason: occurred ? null : noShowReason.trim(),
+        service_time: serviceTime.trim() || null,
+        service_type: serviceType,
+        push_in_notes: serviceType === "push_in" ? (pushInNotes.trim() || null) : null,
       })
       .select()
       .single();
@@ -102,6 +122,16 @@ export default function NewSessionPage() {
       alert("Error creating session: " + (error?.message || "Unknown error"));
       setSaving(false);
       return;
+    }
+
+    // Remember service time + type for the next session entry
+    try {
+      localStorage.setItem(
+        "lastSessionServiceInfo",
+        JSON.stringify({ time: serviceTime.trim(), type: serviceType })
+      );
+    } catch {
+      // ignore storage errors
     }
 
     if (occurred) {
@@ -171,10 +201,52 @@ export default function NewSessionPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-6 space-y-4">
-          <div>
-            <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Session Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Session Date</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Time</label>
+              <input
+                type="text"
+                value={serviceTime}
+                onChange={(e) => setServiceTime(e.target.value)}
+                placeholder="e.g. 9:00–9:30 AM"
+                className={inputClass}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Saved for your next entry so you don&apos;t have to retype the same time.</p>
+            </div>
           </div>
+          {occurred && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Service Type</label>
+                <select
+                  value={serviceType}
+                  onChange={(e) => setServiceType(e.target.value as "pull_out" | "push_in")}
+                  className={`${inputClass} cursor-pointer`}
+                >
+                  <option value="pull_out">Pull-out</option>
+                  <option value="push_in">Push-in</option>
+                </select>
+              </div>
+              {serviceType === "push_in" && (
+                <div>
+                  <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
+                    Teacher name / room number
+                  </label>
+                  <input
+                    type="text"
+                    value={pushInNotes}
+                    onChange={(e) => setPushInNotes(e.target.value)}
+                    placeholder="e.g. Ms. Rivera — Room 214"
+                    className={inputClass}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"

@@ -75,6 +75,9 @@ export interface Session {
   iep_year: string | null;
   occurred: boolean;
   no_show_reason: string | null;
+  service_time: string | null;
+  service_type: "pull_out" | "push_in";
+  push_in_notes: string | null;
   created_at: string;
   // joined
   student?: Student;
