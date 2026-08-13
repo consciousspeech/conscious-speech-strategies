@@ -322,7 +322,10 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                   )}
                   {session.push_in_notes && (
                     <p className="text-xs text-teal-700 mt-2">
-                      <span className="font-medium">Classroom:</span> {session.push_in_notes}
+                      <span className="font-medium">
+                        {session.service_type === "push_in" ? "Classroom" : "Room"}:
+                      </span>{" "}
+                      {session.push_in_notes}
                     </p>
                   )}
                   {session.no_show_reason && (

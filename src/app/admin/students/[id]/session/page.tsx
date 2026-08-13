@@ -5,6 +5,16 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import type { Goal } from "@/lib/supabase/types";
 
+// Default pull-out room per school. Matched case-insensitively by substring so
+// name variations (e.g. "SLAM Tampa Elem" vs "SLAM Tampa Elementary") still hit.
+function getDefaultPullOutRoom(schoolName: string | null | undefined): string | null {
+  if (!schoolName) return null;
+  const s = schoolName.toLowerCase();
+  if (s.includes("slam") && s.includes("tampa")) return "Room 217";
+  if (s.includes("waterset")) return "Room 128";
+  return null;
+}
+
 export default function NewSessionPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -102,6 +112,13 @@ export default function NewSessionPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
 
+    // For push-in, capture the teacher/room the user typed. For pull-out,
+    // auto-fill the default room based on school (if we have one mapped).
+    const effectivePushInNotes =
+      serviceType === "push_in"
+        ? pushInNotes.trim() || null
+        : getDefaultPullOutRoom(schoolName);
+
     const { data: session, error } = await supabase
       .from("sessions")
       .insert({
@@ -113,7 +130,7 @@ export default function NewSessionPage() {
         no_show_reason: occurred ? null : noShowReason.trim(),
         service_time: serviceTime.trim() || null,
         service_type: serviceType,
-        push_in_notes: serviceType === "push_in" ? (pushInNotes.trim() || null) : null,
+        push_in_notes: effectivePushInNotes,
       })
       .select()
       .single();
@@ -219,33 +236,40 @@ export default function NewSessionPage() {
             </div>
           </div>
           {occurred && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Service Type</label>
-                <select
-                  value={serviceType}
-                  onChange={(e) => setServiceType(e.target.value as "pull_out" | "push_in")}
-                  className={`${inputClass} cursor-pointer`}
-                >
-                  <option value="pull_out">Pull-out</option>
-                  <option value="push_in">Push-in</option>
-                </select>
-              </div>
-              {serviceType === "push_in" && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
-                    Teacher name / room number
-                  </label>
-                  <input
-                    type="text"
-                    value={pushInNotes}
-                    onChange={(e) => setPushInNotes(e.target.value)}
-                    placeholder="e.g. Ms. Rivera — Room 214"
-                    className={inputClass}
-                  />
+                  <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Service Type</label>
+                  <select
+                    value={serviceType}
+                    onChange={(e) => setServiceType(e.target.value as "pull_out" | "push_in")}
+                    className={`${inputClass} cursor-pointer`}
+                  >
+                    <option value="pull_out">Pull-out</option>
+                    <option value="push_in">Push-in</option>
+                  </select>
                 </div>
+                {serviceType === "push_in" && (
+                  <div>
+                    <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
+                      Teacher name / room number
+                    </label>
+                    <input
+                      type="text"
+                      value={pushInNotes}
+                      onChange={(e) => setPushInNotes(e.target.value)}
+                      placeholder="e.g. Ms. Rivera — Room 214"
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+              </div>
+              {serviceType === "pull_out" && getDefaultPullOutRoom(schoolName) && (
+                <p className="text-[12px] text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+                  📍 <span className="font-medium">{getDefaultPullOutRoom(schoolName)}</span> will be recorded for this pull-out session at {schoolName}.
+                </p>
               )}
-            </div>
+            </>
           )}
           <label className="flex items-start gap-3 cursor-pointer">
             <input
