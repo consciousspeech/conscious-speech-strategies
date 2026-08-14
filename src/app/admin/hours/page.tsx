@@ -46,7 +46,7 @@ export default function HoursPage() {
       setIsAdmin(admin);
 
       if (admin) {
-        const { data } = await supabase.from("profiles").select("*").order("name");
+        const { data } = await supabase.from("profiles").select("*").eq("archived", false).order("name");
         if (data) setStaff(data);
       }
 

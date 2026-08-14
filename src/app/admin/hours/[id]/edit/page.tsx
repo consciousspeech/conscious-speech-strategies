@@ -47,7 +47,7 @@ export default function EditHoursPage() {
         supabase.from("hours").select("*").eq("id", id).single(),
         supabase.from("schools").select("*").order("name"),
         adminFlag
-          ? supabase.from("profiles").select("*").order("name")
+          ? supabase.from("profiles").select("*").eq("archived", false).order("name")
           : Promise.resolve({ data: null as Profile[] | null }),
       ]);
 

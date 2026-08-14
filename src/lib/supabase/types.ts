@@ -9,7 +9,19 @@ export interface Profile {
   rate_per_hour: number | null;
   internal_rate: number | null;
   external_rate: number | null;
+  archived: boolean;
   created_at: string;
+}
+
+export interface ProfileSchoolRate {
+  id: string;
+  profile_id: string;
+  school_id: string;
+  external_rate: number | null;
+  internal_rate: number | null;
+  created_at: string;
+  // joined
+  school?: School;
 }
 
 export interface School {

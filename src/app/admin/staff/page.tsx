@@ -9,6 +9,7 @@ export default function StaffPage() {
   const [staff, setStaff] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -83,12 +84,20 @@ export default function StaffPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Staff</h1>
-        <button
-          onClick={() => { setShowForm(!showForm); setError(""); setSuccess(""); }}
-          className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer"
-        >
-          {showForm ? "Cancel" : "+ Add Staff"}
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-[13px] text-slate-500 cursor-pointer">
+            <input type="checkbox" checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer" />
+            Show archived
+          </label>
+          <button
+            onClick={() => { setShowForm(!showForm); setError(""); setSuccess(""); }}
+            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer"
+          >
+            {showForm ? "Cancel" : "+ Add Staff"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -188,9 +197,20 @@ export default function StaffPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {staff.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-5 py-3 text-slate-900 font-medium">{s.name}</td>
+                {staff
+                  .filter((s) => showArchived || !s.archived)
+                  .map((s) => (
+                  <tr key={s.id} className={`hover:bg-slate-50/50 transition-colors ${s.archived ? "opacity-60" : ""}`}>
+                    <td className="px-5 py-3 text-slate-900 font-medium">
+                      <div className="flex items-center gap-2">
+                        {s.name}
+                        {s.archived && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">
+                            Archived
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
                         s.role === "admin" ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-600"

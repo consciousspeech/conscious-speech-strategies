@@ -43,8 +43,8 @@ export default function NewInvoicePage() {
     supabase.from("schools").select("*").order("name").then(({ data }) => {
       if (data) setSchools(data);
     });
-    supabase.from("profiles").select("id, name").order("name").then(({ data }) => {
-      if (data) setStaff(data.filter((p) => p.name));
+    supabase.from("profiles").select("id, name, archived").order("name").then(({ data }) => {
+      if (data) setStaff(data.filter((p) => p.name && !p.archived));
     });
   }, []);
 
@@ -66,17 +66,40 @@ export default function NewInvoicePage() {
 
     const { data } = await query;
 
+    // Fetch per-school rate overrides for every staff member appearing in the pulled hours.
+    const userIds = Array.from(new Set((data || []).map((h: Record<string, unknown>) => h.user_id as string)));
+    const overrides: Record<string, number> = {};
+    if (userIds.length > 0) {
+      const { data: rateRows } = await supabase
+        .from("profile_school_rates")
+        .select("profile_id, external_rate")
+        .eq("school_id", schoolId)
+        .in("profile_id", userIds);
+      (rateRows || []).forEach((r: { profile_id: string; external_rate: number | null }) => {
+        if (r.external_rate != null) overrides[r.profile_id] = Number(r.external_rate);
+      });
+    }
+
     if (data) {
       setHourEntries(
-        data.map((h: Record<string, unknown>) => ({
-          id: h.id as string,
-          date: h.date as string,
-          hours: Number(h.hours),
-          description: h.description as string | null,
-          category: h.category as string | null,
-          profile: h.profile as { name: string } | null,
-          rate: Number((h.profile as Record<string, unknown>)?.external_rate) || Number((h.profile as Record<string, unknown>)?.rate_per_hour) || 75,
-        }))
+        data.map((h: Record<string, unknown>) => {
+          const userId = h.user_id as string;
+          const overrideRate = overrides[userId];
+          const profile = h.profile as Record<string, unknown> | null;
+          const rate =
+            overrideRate != null
+              ? overrideRate
+              : Number(profile?.external_rate) || Number(profile?.rate_per_hour) || 75;
+          return {
+            id: h.id as string,
+            date: h.date as string,
+            hours: Number(h.hours),
+            description: h.description as string | null,
+            category: h.category as string | null,
+            profile: profile as { name: string } | null,
+            rate,
+          };
+        })
       );
     }
     setLoading(false);
