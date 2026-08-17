@@ -40,6 +40,54 @@ interface Props {
   filterIepYear?: string | null;
 }
 
+// Get the Monday of the week containing `dateStr` (YYYY-MM-DD).
+// Returns the ISO date string so we can group and sort by it.
+function startOfWeekMondayISO(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  const day = d.getDay(); // 0 = Sun, 1 = Mon, ...
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+// Parse a service_time field like "9:00-9:30", "9:00 AM – 9:45 AM",
+// "30 min", or "45m" into minutes. Returns 0 if unparseable.
+function parseServiceMinutes(raw: string): number {
+  const s = raw.trim().toLowerCase().replace(/[–—]/g, "-");
+  if (!s) return 0;
+
+  // Time range: e.g. "9:00-9:30", "9:00 am - 9:45 am", "9-9:30 am"
+  const timeToken = /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/;
+  const rangeRe = new RegExp(`${timeToken.source}\\s*-\\s*${timeToken.source}`, "i");
+  const rm = s.match(rangeRe);
+  if (rm) {
+    // Groups: 1=h1, 2=m1, 3=ap1, 4=h2, 5=m2, 6=ap2
+    const parse = (h: string, m: string | undefined, ap: string | undefined, otherAp: string | undefined) => {
+      let hr = parseInt(h);
+      const min = m ? parseInt(m) : 0;
+      const ampm = (ap || otherAp || "").replace(/\./g, "").toLowerCase();
+      if (ampm.startsWith("p") && hr < 12) hr += 12;
+      if (ampm.startsWith("a") && hr === 12) hr = 0;
+      return hr * 60 + min;
+    };
+    const start = parse(rm[1], rm[2], rm[3], rm[6]);
+    let end = parse(rm[4], rm[5], rm[6], rm[3]);
+    if (end < start) end += 12 * 60; // crossed noon without explicit am/pm
+    const diff = end - start;
+    if (diff > 0 && diff <= 8 * 60) return diff;
+  }
+
+  // Bare duration: "30 min", "45m", "60"
+  const durRe = /^(\d{1,3})\s*(m(in(ute)?s?)?)?$/;
+  const dm = s.match(durRe);
+  if (dm) {
+    const n = parseInt(dm[1]);
+    if (n > 0 && n <= 8 * 60) return n;
+  }
+
+  return 0;
+}
+
 // Edit-mode goal entry. `id` is present if it maps to an existing
 // session_goal row (so save issues UPDATE); absent means it's a brand-new
 // variant added in the edit form (INSERT).
@@ -86,6 +134,27 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
     if (iepYear === null) return sessions.filter((s) => !s.iep_year);
     return sessions.filter((s) => s.iep_year === iepYear);
   }, [sessions, iepYear]);
+
+  // Group sessions by school week (Monday start) and pre-compute minutes.
+  // `service_time` is free-form ("9:00-9:30 AM", "30 min", etc.) so we try
+  // a time range first, then a bare duration; unparseable strings contribute
+  // 0 minutes but the session still counts. No-shows never contribute minutes.
+  const weekGroups = useMemo(() => {
+    const groups: { weekStart: string; sessions: SessionData[]; minutes: number }[] = [];
+    let current: { weekStart: string; sessions: SessionData[]; minutes: number } | null = null;
+    for (const s of visibleSessions) {
+      const wk = startOfWeekMondayISO(s.date);
+      if (!current || current.weekStart !== wk) {
+        current = { weekStart: wk, sessions: [], minutes: 0 };
+        groups.push(current);
+      }
+      current.sessions.push(s);
+      if (s.occurred !== false) {
+        current.minutes += parseServiceMinutes(s.service_time || "");
+      }
+    }
+    return groups;
+  }, [visibleSessions]);
 
   function goalsForIepYear(iepYear: string | null): Goal[] {
     if (!iepYear) return currentGoals;
@@ -308,10 +377,29 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       </div>
       {visibleSessions.length > 0 ? (
         <div className="divide-y divide-slate-100">
-          {visibleSessions.map((session) => {
-            const goalOptions = goalsForIepYear(session.iep_year);
-            return (
-            <div key={session.id} className="px-5 py-4">
+          {weekGroups.flatMap((group) => {
+            const wkLabel = formatLocalDate(group.weekStart, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+            const occurredCount = group.sessions.filter((s) => s.occurred !== false).length;
+            const header = (
+              <div key={`wk-${group.weekStart}`} className="px-5 py-2 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Week of {wkLabel}
+                </p>
+                <p className="text-[11px] font-medium text-slate-500 tabular-nums">
+                  <span className="text-teal-700">{group.minutes} min</span>
+                  <span className="text-slate-300 mx-2">·</span>
+                  {occurredCount} {occurredCount === 1 ? "session" : "sessions"}
+                </p>
+              </div>
+            );
+            const rows = group.sessions.map((session) => {
+              const goalOptions = goalsForIepYear(session.iep_year);
+              return (
+              <div key={session.id} className="px-5 py-4">
               {editingId === session.id ? (
                 <div className="space-y-3">
                   <div className="flex gap-3 items-end">
@@ -607,7 +695,10 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                 </>
               )}
             </div>
-          );})}
+            );
+            });
+            return [header, ...rows];
+          })}
         </div>
       ) : (
         <p className="px-5 py-10 text-center text-slate-400 text-sm">
