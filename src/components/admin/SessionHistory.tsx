@@ -149,8 +149,8 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
   // contribute 0 minutes. No-shows never contribute minutes but still count
   // as sessions.
   const monthGroups = useMemo(() => {
-    type WeekGroup = { weekStart: string; sessions: SessionData[]; minutes: number; occurredCount: number };
-    type MonthGroup = { monthKey: string; weeks: WeekGroup[]; minutes: number; occurredCount: number };
+    type WeekGroup = { weekStart: string; sessions: SessionData[]; minutes: number; sessionCount: number };
+    type MonthGroup = { monthKey: string; weeks: WeekGroup[]; minutes: number; sessionCount: number };
     const months: MonthGroup[] = [];
     let currentMonth: MonthGroup | null = null;
     let currentWeek: WeekGroup | null = null;
@@ -158,21 +158,21 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       const monthKey = s.date.slice(0, 7); // YYYY-MM
       const wk = startOfWeekMondayISO(s.date);
       if (!currentMonth || currentMonth.monthKey !== monthKey) {
-        currentMonth = { monthKey, weeks: [], minutes: 0, occurredCount: 0 };
+        currentMonth = { monthKey, weeks: [], minutes: 0, sessionCount: 0 };
         months.push(currentMonth);
         currentWeek = null;
       }
       if (!currentWeek || currentWeek.weekStart !== wk) {
-        currentWeek = { weekStart: wk, sessions: [], minutes: 0, occurredCount: 0 };
+        currentWeek = { weekStart: wk, sessions: [], minutes: 0, sessionCount: 0 };
         currentMonth.weeks.push(currentWeek);
       }
       currentWeek.sessions.push(s);
+      currentWeek.sessionCount += 1;
+      currentMonth.sessionCount += 1;
       if (s.occurred !== false) {
         const mins = parseServiceMinutes(s.service_time || "", s.date);
         currentWeek.minutes += mins;
-        currentWeek.occurredCount += 1;
         currentMonth.minutes += mins;
-        currentMonth.occurredCount += 1;
       }
     }
     return months;
@@ -412,7 +412,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                 <p className="text-[12px] font-semibold text-teal-800 tabular-nums">
                   {month.minutes} min
                   <span className="text-teal-300 mx-2">·</span>
-                  {month.occurredCount} {month.occurredCount === 1 ? "session" : "sessions"}
+                  {month.sessionCount} {month.sessionCount === 1 ? "session" : "sessions"}
                 </p>
               </div>
             );
@@ -430,7 +430,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                   <p className="text-[11px] font-medium text-slate-500 tabular-nums">
                     <span className="text-teal-700">{group.minutes} min</span>
                     <span className="text-slate-300 mx-2">·</span>
-                    {group.occurredCount} {group.occurredCount === 1 ? "session" : "sessions"}
+                    {group.sessionCount} {group.sessionCount === 1 ? "session" : "sessions"}
                   </p>
                 </div>
               );
