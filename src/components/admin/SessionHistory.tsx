@@ -50,11 +50,19 @@ function startOfWeekMondayISO(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Sessions logged before we started capturing per-session time (any date
+// before August 2026) are assumed to be the standard 30-minute session.
+const LEGACY_SESSION_CUTOFF = "2026-08-01";
+const LEGACY_DEFAULT_MINUTES = 30;
+
 // Parse a service_time field like "9:00-9:30", "9:00 AM – 9:45 AM",
-// "30 min", or "45m" into minutes. Returns 0 if unparseable.
-function parseServiceMinutes(raw: string): number {
+// "30 min", or "45m" into minutes. Sessions dated before the legacy
+// cutoff fall back to LEGACY_DEFAULT_MINUTES when the field is blank
+// or unparseable. Returns 0 for newer sessions that lack a time.
+function parseServiceMinutes(raw: string, sessionDate?: string): number {
   const s = raw.trim().toLowerCase().replace(/[–—]/g, "-");
-  if (!s) return 0;
+  const legacyFallback = sessionDate && sessionDate < LEGACY_SESSION_CUTOFF ? LEGACY_DEFAULT_MINUTES : 0;
+  if (!s) return legacyFallback;
 
   // Time range: e.g. "9:00-9:30", "9:00 am - 9:45 am", "9-9:30 am"
   const timeToken = /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/;
@@ -85,7 +93,7 @@ function parseServiceMinutes(raw: string): number {
     if (n > 0 && n <= 8 * 60) return n;
   }
 
-  return 0;
+  return legacyFallback;
 }
 
 // Edit-mode goal entry. `id` is present if it maps to an existing
@@ -150,7 +158,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       }
       current.sessions.push(s);
       if (s.occurred !== false) {
-        current.minutes += parseServiceMinutes(s.service_time || "");
+        current.minutes += parseServiceMinutes(s.service_time || "", s.date);
       }
     }
     return groups;
