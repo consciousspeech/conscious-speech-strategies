@@ -143,25 +143,39 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
     return sessions.filter((s) => s.iep_year === iepYear);
   }, [sessions, iepYear]);
 
-  // Group sessions by school week (Monday start) and pre-compute minutes.
-  // `service_time` is free-form ("9:00-9:30 AM", "30 min", etc.) so we try
-  // a time range first, then a bare duration; unparseable strings contribute
-  // 0 minutes but the session still counts. No-shows never contribute minutes.
-  const weekGroups = useMemo(() => {
-    const groups: { weekStart: string; sessions: SessionData[]; minutes: number }[] = [];
-    let current: { weekStart: string; sessions: SessionData[]; minutes: number } | null = null;
+  // Group sessions by calendar month, then by school week (Monday start),
+  // with running totals at each level. `service_time` is free-form so we
+  // parse a time range first, then a bare duration; unparseable strings
+  // contribute 0 minutes. No-shows never contribute minutes but still count
+  // as sessions.
+  const monthGroups = useMemo(() => {
+    type WeekGroup = { weekStart: string; sessions: SessionData[]; minutes: number; occurredCount: number };
+    type MonthGroup = { monthKey: string; weeks: WeekGroup[]; minutes: number; occurredCount: number };
+    const months: MonthGroup[] = [];
+    let currentMonth: MonthGroup | null = null;
+    let currentWeek: WeekGroup | null = null;
     for (const s of visibleSessions) {
+      const monthKey = s.date.slice(0, 7); // YYYY-MM
       const wk = startOfWeekMondayISO(s.date);
-      if (!current || current.weekStart !== wk) {
-        current = { weekStart: wk, sessions: [], minutes: 0 };
-        groups.push(current);
+      if (!currentMonth || currentMonth.monthKey !== monthKey) {
+        currentMonth = { monthKey, weeks: [], minutes: 0, occurredCount: 0 };
+        months.push(currentMonth);
+        currentWeek = null;
       }
-      current.sessions.push(s);
+      if (!currentWeek || currentWeek.weekStart !== wk) {
+        currentWeek = { weekStart: wk, sessions: [], minutes: 0, occurredCount: 0 };
+        currentMonth.weeks.push(currentWeek);
+      }
+      currentWeek.sessions.push(s);
       if (s.occurred !== false) {
-        current.minutes += parseServiceMinutes(s.service_time || "", s.date);
+        const mins = parseServiceMinutes(s.service_time || "", s.date);
+        currentWeek.minutes += mins;
+        currentWeek.occurredCount += 1;
+        currentMonth.minutes += mins;
+        currentMonth.occurredCount += 1;
       }
     }
-    return groups;
+    return months;
   }, [visibleSessions]);
 
   function goalsForIepYear(iepYear: string | null): Goal[] {
@@ -385,28 +399,44 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       </div>
       {visibleSessions.length > 0 ? (
         <div className="divide-y divide-slate-100">
-          {weekGroups.flatMap((group) => {
-            const wkLabel = formatLocalDate(group.weekStart, {
-              month: "short",
-              day: "numeric",
+          {monthGroups.flatMap((month) => {
+            const monthLabel = formatLocalDate(month.monthKey + "-01", {
+              month: "long",
               year: "numeric",
             });
-            const occurredCount = group.sessions.filter((s) => s.occurred !== false).length;
-            const header = (
-              <div key={`wk-${group.weekStart}`} className="px-5 py-2 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Week of {wkLabel}
+            const monthHeader = (
+              <div key={`mo-${month.monthKey}`} className="px-5 py-3 bg-teal-50/60 border-y border-teal-100 flex items-center justify-between">
+                <p className="text-[13px] font-bold uppercase tracking-wide text-teal-800">
+                  {monthLabel}
                 </p>
-                <p className="text-[11px] font-medium text-slate-500 tabular-nums">
-                  <span className="text-teal-700">{group.minutes} min</span>
-                  <span className="text-slate-300 mx-2">·</span>
-                  {occurredCount} {occurredCount === 1 ? "session" : "sessions"}
+                <p className="text-[12px] font-semibold text-teal-800 tabular-nums">
+                  {month.minutes} min
+                  <span className="text-teal-300 mx-2">·</span>
+                  {month.occurredCount} {month.occurredCount === 1 ? "session" : "sessions"}
                 </p>
               </div>
             );
-            const rows = group.sessions.map((session) => {
-              const goalOptions = goalsForIepYear(session.iep_year);
-              return (
+            const weekBlocks = month.weeks.flatMap((group) => {
+              const wkLabel = formatLocalDate(group.weekStart, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              });
+              const header = (
+                <div key={`wk-${group.weekStart}`} className="px-5 py-2 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Week of {wkLabel}
+                  </p>
+                  <p className="text-[11px] font-medium text-slate-500 tabular-nums">
+                    <span className="text-teal-700">{group.minutes} min</span>
+                    <span className="text-slate-300 mx-2">·</span>
+                    {group.occurredCount} {group.occurredCount === 1 ? "session" : "sessions"}
+                  </p>
+                </div>
+              );
+              const rows = group.sessions.map((session) => {
+                const goalOptions = goalsForIepYear(session.iep_year);
+                return (
               <div key={session.id} className="px-5 py-4">
               {editingId === session.id ? (
                 <div className="space-y-3">
@@ -703,9 +733,11 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                 </>
               )}
             </div>
-            );
+                );
+              });
+              return [header, ...rows];
             });
-            return [header, ...rows];
+            return [monthHeader, ...weekBlocks];
           })}
         </div>
       ) : (
