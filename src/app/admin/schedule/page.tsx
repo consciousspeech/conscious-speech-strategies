@@ -12,14 +12,14 @@ interface ScheduleSession {
   service_type: "pull_out" | "push_in" | null;
   push_in_notes: string | null;
   occurred: boolean | null;
-  student: { id: string; name: string; school: { id: string; name: string } | null } | null;
+  student: { id: string; name: string; school: { id: string; name: string; archived: boolean } | null } | null;
 }
 
 interface ScheduleStudent {
   id: string;
   name: string;
   school_id: string;
-  school: { id: string; name: string } | null;
+  school: { id: string; name: string; archived: boolean } | null;
 }
 
 // Fold every SLAM Tampa campus (Elementary/Middle/High) into a single group
@@ -166,13 +166,13 @@ export default function SchedulePage() {
       const [{ data: sessData }, { data: studData }] = await Promise.all([
         supabase
           .from("sessions")
-          .select("id, date, service_time, service_type, push_in_notes, occurred, student:students(id, name, school:schools(id, name))")
+          .select("id, date, service_time, service_type, push_in_notes, occurred, student:students(id, name, school:schools(id, name, archived))")
           .gte("date", isoDate(weekStart))
           .lte("date", isoDate(weekEnd))
           .order("date"),
         supabase
           .from("students")
-          .select("id, name, school_id, school:schools(id, name)")
+          .select("id, name, school_id, school:schools(id, name, archived)")
           .eq("archived", false)
           .order("name"),
       ]);
@@ -206,6 +206,7 @@ export default function SchedulePage() {
     }>();
 
     for (const s of sessions) {
+      if (s.student?.school?.archived) continue; // school retired — hide from schedule
       const rawId = s.student?.school?.id || "__none__";
       const rawName = s.student?.school?.name || "No school assigned";
       const { key, label } = groupKeyFor(rawId, rawName);
@@ -218,6 +219,7 @@ export default function SchedulePage() {
     }
 
     for (const st of students) {
+      if (st.school?.archived) continue;
       const rawId = st.school?.id || st.school_id || "__none__";
       const rawName = st.school?.name || "No school assigned";
       const { key, label } = groupKeyFor(rawId, rawName);
