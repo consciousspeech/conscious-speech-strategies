@@ -16,7 +16,6 @@ interface ScheduleSession {
 }
 
 // Parse "9:00-9:30 AM", "9:00 AM - 9:45 AM", "9-9:30 am" → { start, end } in minutes.
-// Returns null if unparseable.
 function parseTimeRange(raw: string | null): { start: number; end: number } | null {
   if (!raw) return null;
   const s = raw.trim().toLowerCase().replace(/[–—]/g, "-");
@@ -69,22 +68,64 @@ function formatMinutes(min: number): string {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-// Distinct pastel colors per school, keyed off school id hash so
-// the same school gets the same color across renders.
-const SCHOOL_PALETTES = [
+// Assign each session in a day column a horizontal lane so overlapping
+// sessions render side-by-side. Sessions that don't overlap share lane 0.
+// Returns each session augmented with { lane, lanes } where `lanes` is
+// the number of concurrent columns needed at its widest point.
+type PlacedSession = ScheduleSession & { start: number; end: number; lane: number; lanes: number };
+
+function placeInLanes(sessions: (ScheduleSession & { start: number; end: number })[]): PlacedSession[] {
+  const sorted = [...sessions].sort((a, b) => a.start - b.start || a.end - b.end);
+  const placed: PlacedSession[] = [];
+  // Cluster sessions that overlap transitively, then assign lanes per cluster
+  // so the `lanes` count reflects the widest concurrent stack in that cluster.
+  let clusterStart = 0;
+  while (clusterStart < sorted.length) {
+    let clusterEnd = clusterStart;
+    let clusterMaxEnd = sorted[clusterStart].end;
+    while (clusterEnd + 1 < sorted.length && sorted[clusterEnd + 1].start < clusterMaxEnd) {
+      clusterEnd += 1;
+      if (sorted[clusterEnd].end > clusterMaxEnd) clusterMaxEnd = sorted[clusterEnd].end;
+    }
+    const cluster = sorted.slice(clusterStart, clusterEnd + 1);
+    // Greedy first-fit into lanes; each lane tracks its current end time.
+    const laneEnds: number[] = [];
+    const clusterPlaced: PlacedSession[] = [];
+    for (const s of cluster) {
+      let lane = laneEnds.findIndex((end) => end <= s.start);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(s.end);
+      } else {
+        laneEnds[lane] = s.end;
+      }
+      clusterPlaced.push({ ...s, lane, lanes: 0 });
+    }
+    const lanes = laneEnds.length;
+    for (const p of clusterPlaced) p.lanes = lanes;
+    placed.push(...clusterPlaced);
+    clusterStart = clusterEnd + 1;
+  }
+  return placed;
+}
+
+// Distinct pastel palettes cycled through — used for per-student swatches.
+const STUDENT_PALETTES = [
   { bg: "bg-teal-100", text: "text-teal-800", border: "border-teal-200" },
   { bg: "bg-violet-100", text: "text-violet-800", border: "border-violet-200" },
   { bg: "bg-amber-100", text: "text-amber-800", border: "border-amber-200" },
   { bg: "bg-rose-100", text: "text-rose-800", border: "border-rose-200" },
   { bg: "bg-sky-100", text: "text-sky-800", border: "border-sky-200" },
   { bg: "bg-emerald-100", text: "text-emerald-800", border: "border-emerald-200" },
+  { bg: "bg-indigo-100", text: "text-indigo-800", border: "border-indigo-200" },
+  { bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-200" },
 ];
 
-function schoolPalette(schoolId: string | undefined): typeof SCHOOL_PALETTES[number] {
-  if (!schoolId) return { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-200" };
+function paletteFor(id: string | undefined): typeof STUDENT_PALETTES[number] {
+  if (!id) return { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-200" };
   let hash = 0;
-  for (let i = 0; i < schoolId.length; i++) hash = (hash * 31 + schoolId.charCodeAt(i)) & 0xffffffff;
-  return SCHOOL_PALETTES[Math.abs(hash) % SCHOOL_PALETTES.length];
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+  return STUDENT_PALETTES[Math.abs(hash) % STUDENT_PALETTES.length];
 }
 
 const SLOT_MINUTES = 15;
@@ -112,10 +153,9 @@ export default function SchedulePage() {
         .order("date");
       if (!cancelled) {
         setSessions((data || []) as unknown as ScheduleSession[]);
-        // If any weekend sessions exist, auto-expand to show them.
         if (!includeWeekend && (data || []).some((s: { date: string }) => {
           const d = new Date(s.date + "T00:00:00");
-          const dayIdx = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+          const dayIdx = (d.getDay() + 6) % 7;
           return dayIdx >= 5;
         })) {
           setIncludeWeekend(true);
@@ -127,48 +167,23 @@ export default function SchedulePage() {
     return () => { cancelled = true; };
   }, [weekStart, weekEnd, includeWeekend, supabase]);
 
-  // Build per-day columns with placed sessions and an "unscheduled" bucket.
-  const dayColumns = useMemo(() => {
-    const cols: { date: Date; scheduled: (ScheduleSession & { start: number; end: number })[]; unscheduled: ScheduleSession[] }[] = [];
-    for (let i = 0; i < dayCount; i++) cols.push({ date: addDays(weekStart, i), scheduled: [], unscheduled: [] });
+  // Group by school id → sessions in that school
+  const schoolGroups = useMemo(() => {
+    const map = new Map<string, { schoolId: string; schoolName: string; sessions: ScheduleSession[] }>();
     for (const s of sessions) {
-      const sDate = new Date(s.date + "T00:00:00");
-      const idx = Math.round((sDate.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000));
-      if (idx < 0 || idx >= dayCount) continue;
-      const range = parseTimeRange(s.service_time);
-      if (range) cols[idx].scheduled.push({ ...s, start: range.start, end: range.end });
-      else cols[idx].unscheduled.push(s);
-    }
-    // Sort scheduled by start time
-    for (const c of cols) c.scheduled.sort((a, b) => a.start - b.start);
-    return cols;
-  }, [sessions, weekStart, dayCount]);
-
-  // Determine visible time range from scheduled sessions (fallback 8am-3pm)
-  const { minMinute, maxMinute } = useMemo(() => {
-    let min = 8 * 60;
-    let max = 15 * 60;
-    for (const c of dayColumns) {
-      for (const s of c.scheduled) {
-        if (s.start < min) min = s.start;
-        if (s.end > max) max = s.end;
+      const schoolId = s.student?.school?.id || "__none__";
+      const schoolName = s.student?.school?.name || "No school assigned";
+      let bucket = map.get(schoolId);
+      if (!bucket) {
+        bucket = { schoolId, schoolName, sessions: [] };
+        map.set(schoolId, bucket);
       }
+      bucket.sessions.push(s);
     }
-    // Snap to 15-min boundaries and pad
-    min = Math.floor(min / SLOT_MINUTES) * SLOT_MINUTES;
-    max = Math.ceil(max / SLOT_MINUTES) * SLOT_MINUTES;
-    return { minMinute: min, maxMinute: max };
-  }, [dayColumns]);
+    return Array.from(map.values()).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+  }, [sessions]);
 
-  const totalSlots = Math.max(1, (maxMinute - minMinute) / SLOT_MINUTES);
-  const gridHeight = totalSlots * PIXELS_PER_SLOT;
-
-  // Hour lines for the time axis (every 60 min within range)
-  const hourLines: number[] = [];
-  const firstHour = Math.ceil(minMinute / 60) * 60;
-  for (let m = firstHour; m <= maxMinute; m += 60) hourLines.push(m);
-
-  const totalScheduled = dayColumns.reduce((n, c) => n + c.scheduled.length + c.unscheduled.length, 0);
+  const totalScheduled = sessions.length;
 
   return (
     <div>
@@ -216,114 +231,189 @@ export default function SchedulePage() {
           <p className="text-slate-400 text-sm">No sessions logged for this week.</p>
         </div>
       ) : (
-        <>
-          <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
-            {/* Day header row */}
-            <div className="grid border-b border-slate-100" style={{ gridTemplateColumns: `56px repeat(${dayCount}, 1fr)` }}>
-              <div />
-              {dayColumns.map((c, i) => {
-                const isToday = isoDate(c.date) === isoDate(new Date());
-                return (
-                  <div key={i} className={`px-3 py-3 text-center border-l border-slate-100 ${isToday ? "bg-teal-50/60" : ""}`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      {c.date.toLocaleDateString("en-US", { weekday: "short" })}
-                    </p>
-                    <p className={`text-[15px] font-semibold mt-0.5 tabular-nums ${isToday ? "text-teal-700" : "text-slate-900"}`}>
-                      {c.date.getDate()}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Grid body */}
-            <div className="grid" style={{ gridTemplateColumns: `56px repeat(${dayCount}, 1fr)` }}>
-              {/* Time axis */}
-              <div className="relative border-r border-slate-100" style={{ height: gridHeight }}>
-                {hourLines.map((m) => (
-                  <div key={m} className="absolute right-2 text-[11px] text-slate-400 tabular-nums"
-                    style={{ top: ((m - minMinute) / SLOT_MINUTES) * PIXELS_PER_SLOT - 6 }}>
-                    {formatMinutes(m).replace(":00 ", " ")}
-                  </div>
-                ))}
-              </div>
-
-              {/* Day columns */}
-              {dayColumns.map((col, colIdx) => {
-                const isToday = isoDate(col.date) === isoDate(new Date());
-                return (
-                  <div key={colIdx} className={`relative border-l border-slate-100 ${isToday ? "bg-teal-50/40" : ""}`}
-                    style={{ height: gridHeight }}>
-                    {/* Hour grid lines */}
-                    {hourLines.map((m) => (
-                      <div key={m} className="absolute left-0 right-0 border-t border-slate-100"
-                        style={{ top: ((m - minMinute) / SLOT_MINUTES) * PIXELS_PER_SLOT }} />
-                    ))}
-                    {/* Session blocks */}
-                    {col.scheduled.map((s) => {
-                      const top = ((s.start - minMinute) / SLOT_MINUTES) * PIXELS_PER_SLOT;
-                      const height = Math.max(PIXELS_PER_SLOT * 1.5, ((s.end - s.start) / SLOT_MINUTES) * PIXELS_PER_SLOT);
-                      const pal = schoolPalette(s.student?.school?.id);
-                      const didNotOccur = s.occurred === false;
-                      return (
-                        <Link
-                          key={s.id}
-                          href={`/admin/students/${s.student?.id}`}
-                          className={`absolute left-1 right-1 rounded-md border px-1.5 py-1 overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${pal.bg} ${pal.text} ${pal.border} ${didNotOccur ? "opacity-60 line-through decoration-1" : ""}`}
-                          style={{ top, height }}
-                          title={`${s.student?.name} · ${formatMinutes(s.start)}–${formatMinutes(s.end)}${s.push_in_notes ? " · " + s.push_in_notes : ""}`}
-                        >
-                          <p className="text-[11px] font-semibold leading-tight truncate">
-                            {s.student?.name}
-                          </p>
-                          <p className="text-[10px] leading-tight opacity-75 truncate">
-                            {formatMinutes(s.start).replace(" ", "").toLowerCase()}–{formatMinutes(s.end).replace(" ", "").toLowerCase()}
-                            {s.service_type === "push_in" ? " · push-in" : ""}
-                          </p>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Unscheduled sessions (no parseable time) */}
-          {dayColumns.some((c) => c.unscheduled.length > 0) && (
-            <div className="mt-6 bg-white rounded-xl border border-slate-200/60 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-slate-900 text-[15px]">Sessions without a time</h2>
-                <p className="text-[11px] text-slate-400">Add a time (e.g. &quot;9:00–9:30 AM&quot;) in the session note to place them on the grid.</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                {dayColumns.map((c, i) =>
-                  c.unscheduled.length === 0 ? null : (
-                    <div key={i} className="space-y-1.5">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                        {c.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                      </p>
-                      {c.unscheduled.map((s) => {
-                        const pal = schoolPalette(s.student?.school?.id);
-                        return (
-                          <Link key={s.id} href={`/admin/students/${s.student?.id}`}
-                            className={`block rounded-md border px-2 py-1.5 ${pal.bg} ${pal.text} ${pal.border} hover:shadow-sm transition-shadow cursor-pointer`}>
-                            <p className="text-[12px] font-semibold leading-tight truncate">{s.student?.name}</p>
-                            <p className="text-[10px] leading-tight opacity-70 truncate">
-                              {s.student?.school?.name}
-                              {s.occurred === false ? " · did not occur" : ""}
-                            </p>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          )}
-        </>
+        <div className="space-y-8">
+          {schoolGroups.map((group) => (
+            <SchoolSchedule
+              key={group.schoolId}
+              schoolName={group.schoolName}
+              sessions={group.sessions}
+              weekStart={weekStart}
+              dayCount={dayCount}
+            />
+          ))}
+        </div>
       )}
     </div>
+  );
+}
+
+function SchoolSchedule({
+  schoolName,
+  sessions,
+  weekStart,
+  dayCount,
+}: {
+  schoolName: string;
+  sessions: ScheduleSession[];
+  weekStart: Date;
+  dayCount: number;
+}) {
+  // Build per-day columns with placed sessions and an "unscheduled" bucket.
+  const dayColumns = useMemo(() => {
+    const cols: { date: Date; scheduled: PlacedSession[]; unscheduled: ScheduleSession[] }[] = [];
+    for (let i = 0; i < dayCount; i++) cols.push({ date: addDays(weekStart, i), scheduled: [], unscheduled: [] });
+    const perDayRaw: (ScheduleSession & { start: number; end: number })[][] = Array.from({ length: dayCount }, () => []);
+    for (const s of sessions) {
+      const sDate = new Date(s.date + "T00:00:00");
+      const idx = Math.round((sDate.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000));
+      if (idx < 0 || idx >= dayCount) continue;
+      const range = parseTimeRange(s.service_time);
+      if (range) perDayRaw[idx].push({ ...s, start: range.start, end: range.end });
+      else cols[idx].unscheduled.push(s);
+    }
+    for (let i = 0; i < dayCount; i++) cols[i].scheduled = placeInLanes(perDayRaw[i]);
+    return cols;
+  }, [sessions, weekStart, dayCount]);
+
+  const { minMinute, maxMinute } = useMemo(() => {
+    let min = 8 * 60;
+    let max = 15 * 60;
+    for (const c of dayColumns) {
+      for (const s of c.scheduled) {
+        if (s.start < min) min = s.start;
+        if (s.end > max) max = s.end;
+      }
+    }
+    min = Math.floor(min / SLOT_MINUTES) * SLOT_MINUTES;
+    max = Math.ceil(max / SLOT_MINUTES) * SLOT_MINUTES;
+    return { minMinute: min, maxMinute: max };
+  }, [dayColumns]);
+
+  const totalSlots = Math.max(1, (maxMinute - minMinute) / SLOT_MINUTES);
+  const gridHeight = totalSlots * PIXELS_PER_SLOT;
+  const hourLines: number[] = [];
+  const firstHour = Math.ceil(minMinute / 60) * 60;
+  for (let m = firstHour; m <= maxMinute; m += 60) hourLines.push(m);
+
+  const scheduledCount = dayColumns.reduce((n, c) => n + c.scheduled.length, 0);
+  const unscheduledCount = dayColumns.reduce((n, c) => n + c.unscheduled.length, 0);
+
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-[16px] font-semibold text-slate-900 tracking-tight">{schoolName}</h2>
+        <p className="text-[12px] text-slate-400 tabular-nums">
+          {scheduledCount + unscheduledCount} {scheduledCount + unscheduledCount === 1 ? "session" : "sessions"}
+        </p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
+        {/* Day header row */}
+        <div className="grid border-b border-slate-100" style={{ gridTemplateColumns: `56px repeat(${dayCount}, 1fr)` }}>
+          <div />
+          {dayColumns.map((c, i) => {
+            const isToday = isoDate(c.date) === isoDate(new Date());
+            return (
+              <div key={i} className={`px-3 py-3 text-center border-l border-slate-100 ${isToday ? "bg-teal-50/60" : ""}`}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  {c.date.toLocaleDateString("en-US", { weekday: "short" })}
+                </p>
+                <p className={`text-[15px] font-semibold mt-0.5 tabular-nums ${isToday ? "text-teal-700" : "text-slate-900"}`}>
+                  {c.date.getDate()}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Grid body */}
+        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${dayCount}, 1fr)` }}>
+          {/* Time axis */}
+          <div className="relative border-r border-slate-100" style={{ height: gridHeight }}>
+            {hourLines.map((m) => (
+              <div key={m} className="absolute right-2 text-[11px] text-slate-400 tabular-nums"
+                style={{ top: ((m - minMinute) / SLOT_MINUTES) * PIXELS_PER_SLOT - 6 }}>
+                {formatMinutes(m).replace(":00 ", " ")}
+              </div>
+            ))}
+          </div>
+
+          {dayColumns.map((col, colIdx) => {
+            const isToday = isoDate(col.date) === isoDate(new Date());
+            return (
+              <div key={colIdx} className={`relative border-l border-slate-100 ${isToday ? "bg-teal-50/40" : ""}`}
+                style={{ height: gridHeight }}>
+                {hourLines.map((m) => (
+                  <div key={m} className="absolute left-0 right-0 border-t border-slate-100"
+                    style={{ top: ((m - minMinute) / SLOT_MINUTES) * PIXELS_PER_SLOT }} />
+                ))}
+                {col.scheduled.map((s) => {
+                  const top = ((s.start - minMinute) / SLOT_MINUTES) * PIXELS_PER_SLOT;
+                  const height = Math.max(PIXELS_PER_SLOT * 1.5, ((s.end - s.start) / SLOT_MINUTES) * PIXELS_PER_SLOT);
+                  const pal = paletteFor(s.student?.id);
+                  const didNotOccur = s.occurred === false;
+                  const widthPct = 100 / s.lanes;
+                  const leftPct = s.lane * widthPct;
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/admin/students/${s.student?.id}`}
+                      className={`absolute rounded-md border px-1.5 py-1 overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${pal.bg} ${pal.text} ${pal.border} ${didNotOccur ? "opacity-60 line-through decoration-1" : ""}`}
+                      style={{
+                        top,
+                        height,
+                        left: `calc(${leftPct}% + 2px)`,
+                        width: `calc(${widthPct}% - 4px)`,
+                      }}
+                      title={`${s.student?.name} · ${formatMinutes(s.start)}–${formatMinutes(s.end)}${s.push_in_notes ? " · " + s.push_in_notes : ""}`}
+                    >
+                      <p className="text-[11px] font-semibold leading-tight truncate">
+                        {s.student?.name}
+                      </p>
+                      <p className="text-[10px] leading-tight opacity-75 truncate">
+                        {formatMinutes(s.start).replace(" ", "").toLowerCase()}–{formatMinutes(s.end).replace(" ", "").toLowerCase()}
+                        {s.service_type === "push_in" ? " · push-in" : ""}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {unscheduledCount > 0 && (
+        <div className="mt-3 bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[12px] font-medium text-slate-500">Sessions without a time</p>
+            <p className="text-[10px] text-slate-400">Add a time to place them on the grid.</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {dayColumns.map((c, i) =>
+              c.unscheduled.length === 0 ? null : (
+                <div key={i} className="space-y-1.5">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                    {c.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  </p>
+                  {c.unscheduled.map((s) => {
+                    const pal = paletteFor(s.student?.id);
+                    return (
+                      <Link key={s.id} href={`/admin/students/${s.student?.id}`}
+                        className={`block rounded-md border px-2 py-1.5 ${pal.bg} ${pal.text} ${pal.border} hover:shadow-sm transition-shadow cursor-pointer`}>
+                        <p className="text-[11px] font-semibold leading-tight truncate">{s.student?.name}</p>
+                        {s.occurred === false && (
+                          <p className="text-[10px] leading-tight opacity-70">did not occur</p>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
