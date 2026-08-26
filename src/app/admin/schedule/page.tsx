@@ -167,16 +167,23 @@ export default function SchedulePage() {
     return () => { cancelled = true; };
   }, [weekStart, weekEnd, includeWeekend, supabase]);
 
-  // Group by school id → sessions in that school
+  // Group by school → sessions in that school. Every SLAM Tampa campus
+  // (Elem/Middle/High) is folded into a single "SLAM Tampa" section so the
+  // full day at that site reads as one schedule.
   const schoolGroups = useMemo(() => {
+    const groupKeyFor = (schoolId: string, schoolName: string): { key: string; label: string } => {
+      if (/^slam\s+tampa/i.test(schoolName)) return { key: "__slam_tampa__", label: "SLAM Tampa" };
+      return { key: schoolId, label: schoolName };
+    };
     const map = new Map<string, { schoolId: string; schoolName: string; sessions: ScheduleSession[] }>();
     for (const s of sessions) {
-      const schoolId = s.student?.school?.id || "__none__";
-      const schoolName = s.student?.school?.name || "No school assigned";
-      let bucket = map.get(schoolId);
+      const rawId = s.student?.school?.id || "__none__";
+      const rawName = s.student?.school?.name || "No school assigned";
+      const { key, label } = groupKeyFor(rawId, rawName);
+      let bucket = map.get(key);
       if (!bucket) {
-        bucket = { schoolId, schoolName, sessions: [] };
-        map.set(schoolId, bucket);
+        bucket = { schoolId: key, schoolName: label, sessions: [] };
+        map.set(key, bucket);
       }
       bucket.sessions.push(s);
     }
