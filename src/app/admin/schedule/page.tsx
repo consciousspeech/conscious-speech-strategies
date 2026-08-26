@@ -15,6 +15,20 @@ interface ScheduleSession {
   student: { id: string; name: string; school: { id: string; name: string } | null } | null;
 }
 
+interface ScheduleStudent {
+  id: string;
+  name: string;
+  school_id: string;
+  school: { id: string; name: string } | null;
+}
+
+// Fold every SLAM Tampa campus (Elementary/Middle/High) into a single group
+// so the whole day at that site reads as one section on the schedule.
+function groupKeyFor(schoolId: string, schoolName: string): { key: string; label: string } {
+  if (/^slam\s+tampa/i.test(schoolName)) return { key: "__slam_tampa__", label: "SLAM Tampa" };
+  return { key: schoolId, label: schoolName };
+}
+
 // Parse "9:00-9:30 AM", "9:00 AM - 9:45 AM", "9-9:30 am" → { start, end } in minutes.
 function parseTimeRange(raw: string | null): { start: number; end: number } | null {
   if (!raw) return null;
@@ -135,6 +149,7 @@ export default function SchedulePage() {
   const supabase = createClient();
   const [weekStart, setWeekStart] = useState(() => startOfWeekMonday(new Date()));
   const [sessions, setSessions] = useState<ScheduleSession[]>([]);
+  const [students, setStudents] = useState<ScheduleStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [includeWeekend, setIncludeWeekend] = useState(false);
 
@@ -145,15 +160,23 @@ export default function SchedulePage() {
     let cancelled = false;
     async function load() {
       setLoading(true);
-      const { data } = await supabase
-        .from("sessions")
-        .select("id, date, service_time, service_type, push_in_notes, occurred, student:students(id, name, school:schools(id, name))")
-        .gte("date", isoDate(weekStart))
-        .lte("date", isoDate(weekEnd))
-        .order("date");
+      const [{ data: sessData }, { data: studData }] = await Promise.all([
+        supabase
+          .from("sessions")
+          .select("id, date, service_time, service_type, push_in_notes, occurred, student:students(id, name, school:schools(id, name))")
+          .gte("date", isoDate(weekStart))
+          .lte("date", isoDate(weekEnd))
+          .order("date"),
+        supabase
+          .from("students")
+          .select("id, name, school_id, school:schools(id, name)")
+          .eq("archived", false)
+          .order("name"),
+      ]);
       if (!cancelled) {
-        setSessions((data || []) as unknown as ScheduleSession[]);
-        if (!includeWeekend && (data || []).some((s: { date: string }) => {
+        setSessions((sessData || []) as unknown as ScheduleSession[]);
+        setStudents((studData || []) as unknown as ScheduleStudent[]);
+        if (!includeWeekend && (sessData || []).some((s: { date: string }) => {
           const d = new Date(s.date + "T00:00:00");
           const dayIdx = (d.getDay() + 6) % 7;
           return dayIdx >= 5;
@@ -167,28 +190,57 @@ export default function SchedulePage() {
     return () => { cancelled = true; };
   }, [weekStart, weekEnd, includeWeekend, supabase]);
 
-  // Group by school → sessions in that school. Every SLAM Tampa campus
-  // (Elem/Middle/High) is folded into a single "SLAM Tampa" section so the
-  // full day at that site reads as one schedule.
+  // Group by school → sessions + full active roster for that school. A student
+  // shows up in `unseenStudents` when they have no occurred session in this
+  // week (no-shows count as not seen, per Rachel's ask). SLAM Tampa campuses
+  // are folded into one section for both the schedule and the roster.
   const schoolGroups = useMemo(() => {
-    const groupKeyFor = (schoolId: string, schoolName: string): { key: string; label: string } => {
-      if (/^slam\s+tampa/i.test(schoolName)) return { key: "__slam_tampa__", label: "SLAM Tampa" };
-      return { key: schoolId, label: schoolName };
-    };
-    const map = new Map<string, { schoolId: string; schoolName: string; sessions: ScheduleSession[] }>();
+    const map = new Map<string, {
+      schoolId: string;
+      schoolName: string;
+      sessions: ScheduleSession[];
+      roster: ScheduleStudent[];
+    }>();
+
     for (const s of sessions) {
       const rawId = s.student?.school?.id || "__none__";
       const rawName = s.student?.school?.name || "No school assigned";
       const { key, label } = groupKeyFor(rawId, rawName);
       let bucket = map.get(key);
       if (!bucket) {
-        bucket = { schoolId: key, schoolName: label, sessions: [] };
+        bucket = { schoolId: key, schoolName: label, sessions: [], roster: [] };
         map.set(key, bucket);
       }
       bucket.sessions.push(s);
     }
-    return Array.from(map.values()).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
-  }, [sessions]);
+
+    for (const st of students) {
+      const rawId = st.school?.id || st.school_id || "__none__";
+      const rawName = st.school?.name || "No school assigned";
+      const { key, label } = groupKeyFor(rawId, rawName);
+      let bucket = map.get(key);
+      if (!bucket) {
+        bucket = { schoolId: key, schoolName: label, sessions: [], roster: [] };
+        map.set(key, bucket);
+      }
+      bucket.roster.push(st);
+    }
+
+    // Compute unseen (had no occurred session this week) per group.
+    return Array.from(map.values())
+      .map((g) => {
+        const seenIds = new Set(
+          g.sessions
+            .filter((s) => s.occurred !== false && s.student?.id)
+            .map((s) => s.student!.id)
+        );
+        const unseenStudents = g.roster
+          .filter((st) => !seenIds.has(st.id))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        return { ...g, unseenStudents };
+      })
+      .sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+  }, [sessions, students]);
 
   const totalScheduled = sessions.length;
 
@@ -244,6 +296,7 @@ export default function SchedulePage() {
               key={group.schoolId}
               schoolName={group.schoolName}
               sessions={group.sessions}
+              unseenStudents={group.unseenStudents}
               weekStart={weekStart}
               dayCount={dayCount}
             />
@@ -257,11 +310,13 @@ export default function SchedulePage() {
 function SchoolSchedule({
   schoolName,
   sessions,
+  unseenStudents,
   weekStart,
   dayCount,
 }: {
   schoolName: string;
   sessions: ScheduleSession[];
+  unseenStudents: ScheduleStudent[];
   weekStart: Date;
   dayCount: number;
 }) {
@@ -418,6 +473,25 @@ function SchoolSchedule({
                 </div>
               )
             )}
+          </div>
+        </div>
+      )}
+
+      {unseenStudents.length > 0 && (
+        <div className="mt-3 bg-amber-50/50 rounded-xl border border-amber-200/70 shadow-sm p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[12px] font-semibold text-amber-800">
+              Not seen this week ({unseenStudents.length})
+            </p>
+            <p className="text-[10px] text-amber-700/70">No-shows don&apos;t count as seen.</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {unseenStudents.map((st) => (
+              <Link key={st.id} href={`/admin/students/${st.id}`}
+                className="inline-block rounded-md bg-white border border-amber-200 text-amber-900 px-2 py-1 text-[12px] font-medium hover:bg-amber-100 hover:border-amber-300 transition-colors cursor-pointer">
+                {st.name}
+              </Link>
+            ))}
           </div>
         </div>
       )}
