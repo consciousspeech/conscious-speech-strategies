@@ -26,8 +26,13 @@ export default function NewSessionPage() {
   const [notes, setNotes] = useState("");
   const [goalData, setGoalData] = useState<Record<string, Array<{ correct: string; total: string; notes: string; target: string }>>>({});
   const [saving, setSaving] = useState(false);
-  const [occurred, setOccurred] = useState(true);
+  // "occurred" is derived: the "attendance" radio drives both `occurred` and
+  // `no_show_type`. `no_show_reason` holds the activity name for
+  // school_activity, or optional extra context for the other reasons.
+  type Attendance = "occurred" | "student_absent" | "school_activity" | "school_closure";
+  const [attendance, setAttendance] = useState<Attendance>("occurred");
   const [noShowReason, setNoShowReason] = useState("");
+  const occurred = attendance === "occurred";
   const [serviceTime, setServiceTime] = useState("");
   const [serviceType, setServiceType] = useState<"pull_out" | "push_in">("pull_out");
   const [pushInNotes, setPushInNotes] = useState("");
@@ -102,9 +107,10 @@ export default function NewSessionPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // No-show requires a reason — enforce client-side too as a safety net
-    if (!occurred && !noShowReason.trim()) {
-      alert("Please enter the reason the session did not occur.");
+    // For school activity, the activity name is required. Other no-show
+    // types don't require additional text.
+    if (attendance === "school_activity" && !noShowReason.trim()) {
+      alert("Please enter what kind of school activity (field trip, assembly, etc.).");
       return;
     }
 
@@ -127,7 +133,8 @@ export default function NewSessionPage() {
         entered_by: user?.id,
         notes: notes || null,
         occurred,
-        no_show_reason: occurred ? null : noShowReason.trim(),
+        no_show_type: occurred ? null : attendance,
+        no_show_reason: occurred ? null : (noShowReason.trim() || null),
         service_time: serviceTime.trim() || null,
         service_type: serviceType,
         push_in_notes: effectivePushInNotes,
@@ -186,6 +193,10 @@ export default function NewSessionPage() {
         .select("name")
         .eq("id", user?.id ?? "")
         .single();
+      const typeLabel =
+        attendance === "student_absent" ? "Student absent" :
+        attendance === "school_activity" ? "School activity" :
+        attendance === "school_closure" ? "School closure" : "No-show";
       fetch("/api/session-no-show", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,7 +204,7 @@ export default function NewSessionPage() {
           studentName,
           schoolName,
           sessionDate: date,
-          reason: noShowReason.trim(),
+          reason: noShowReason.trim() ? `${typeLabel} — ${noShowReason.trim()}` : typeLabel,
           enteredByName: enteredByProfile?.name || "Unknown",
         }),
       }).catch((err) => console.error("No-show email notify failed:", err));
@@ -271,35 +282,51 @@ export default function NewSessionPage() {
               )}
             </>
           )}
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={occurred}
-              onChange={(e) => setOccurred(e.target.checked)}
-              className="mt-0.5 w-4 h-4 cursor-pointer accent-teal-600"
-            />
-            <div>
-              <p className="text-[13px] font-medium text-slate-700">Session occurred</p>
-              <p className="text-[12px] text-slate-400">Uncheck if the session did not happen (no-show, cancellation, etc.)</p>
+          <div>
+            <p className="text-[13px] font-medium text-slate-700 mb-2">Attendance</p>
+            <div className="space-y-1.5">
+              {([
+                { value: "occurred", label: "Session occurred" },
+                { value: "student_absent", label: "Student absent" },
+                { value: "school_activity", label: "School activity" },
+                { value: "school_closure", label: "School closure" },
+              ] as { value: Attendance; label: string }[]).map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="attendance"
+                    value={opt.value}
+                    checked={attendance === opt.value}
+                    onChange={() => setAttendance(opt.value)}
+                    className="w-4 h-4 cursor-pointer accent-teal-600"
+                  />
+                  <span className="text-[13px] text-slate-700">{opt.label}</span>
+                </label>
+              ))}
             </div>
-          </label>
-          {!occurred && (
+          </div>
+          {attendance === "school_activity" && (
             <div>
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
-                Reason session did not occur <span className="text-red-500">*</span>
+                What kind of school activity? <span className="text-red-500">*</span>
               </label>
-              <textarea
+              <input
+                type="text"
                 value={noShowReason}
                 onChange={(e) => setNoShowReason(e.target.value)}
-                rows={3}
                 required
-                placeholder="e.g. Student absent, scheduling conflict, sick, etc."
+                placeholder="e.g. Field trip, assembly, testing"
                 className={inputClass}
               />
               <p className="text-[12px] text-amber-700 mt-1.5">
                 Rachel will be emailed when you save this entry.
               </p>
             </div>
+          )}
+          {(attendance === "student_absent" || attendance === "school_closure") && (
+            <p className="text-[12px] text-amber-700">
+              Rachel will be emailed when you save this entry.
+            </p>
           )}
           {occurred && (
             <div>

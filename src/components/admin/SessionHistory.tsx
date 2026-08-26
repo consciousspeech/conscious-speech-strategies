@@ -25,12 +25,15 @@ interface SessionData {
   iep_year: string | null;
   occurred?: boolean;
   no_show_reason?: string | null;
+  no_show_type?: "student_absent" | "school_activity" | "school_closure" | null;
   service_time?: string | null;
   service_type?: "pull_out" | "push_in" | null;
   push_in_notes?: string | null;
   entered_by_profile: { name: string } | null;
   session_goals: SessionGoalData[];
 }
+
+type EditAttendance = "occurred" | "student_absent" | "school_activity" | "school_closure";
 
 interface Props {
   sessions: SessionData[];
@@ -118,7 +121,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
     service_time: string;
     service_type: "pull_out" | "push_in";
     push_in_notes: string;
-    occurred: boolean;
+    attendance: EditAttendance;
     no_show_reason: string;
     // goal_id → variant entries (existing session_goals + any newly added)
     goalEntries: Record<string, EditGoalEntry[]>;
@@ -130,7 +133,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
     service_time: "",
     service_type: "pull_out",
     push_in_notes: "",
-    occurred: true,
+    attendance: "occurred",
     no_show_reason: "",
     goalEntries: {},
     originalSessionGoalIds: [],
@@ -217,13 +220,18 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
 
     const originalSessionGoalIds = (session.session_goals || []).map((sg) => sg.id);
 
+    const attendance: EditAttendance =
+      session.occurred === false
+        ? (session.no_show_type ?? "student_absent")
+        : "occurred";
+
     setEditForm({
       date: session.date,
       notes: session.notes || "",
       service_time: session.service_time || "",
       service_type: session.service_type || "pull_out",
       push_in_notes: session.push_in_notes || "",
-      occurred: session.occurred !== false,
+      attendance,
       no_show_reason: session.no_show_reason || "",
       goalEntries,
       originalSessionGoalIds,
@@ -258,6 +266,11 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
   }
 
   async function saveEdit(sessionId: string) {
+    const occurred = editForm.attendance === "occurred";
+    if (editForm.attendance === "school_activity" && !editForm.no_show_reason.trim()) {
+      alert("Please enter what kind of school activity.");
+      return;
+    }
     // 1. Save top-level session fields
     await supabase.from("sessions").update({
       date: editForm.date,
@@ -265,8 +278,9 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       service_time: editForm.service_time.trim() || null,
       service_type: editForm.service_type,
       push_in_notes: editForm.push_in_notes.trim() || null,
-      occurred: editForm.occurred,
-      no_show_reason: editForm.occurred ? null : editForm.no_show_reason.trim() || null,
+      occurred,
+      no_show_type: occurred ? null : editForm.attendance,
+      no_show_reason: occurred ? null : (editForm.no_show_reason.trim() || null),
     }).eq("id", sessionId);
 
     // 2. Reconcile session_goals: UPDATE existing, INSERT new, DELETE removed
@@ -375,6 +389,8 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       // New inserts
       for (const row of insertedRows) rebuilt.push(row);
 
+      const noShowTypeForRow: SessionData["no_show_type"] =
+        occurred || editForm.attendance === "occurred" ? null : editForm.attendance;
       return {
         ...s,
         date: editForm.date,
@@ -382,8 +398,9 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
         service_time: editForm.service_time.trim() || null,
         service_type: editForm.service_type,
         push_in_notes: editForm.push_in_notes.trim() || null,
-        occurred: editForm.occurred,
-        no_show_reason: editForm.occurred ? null : editForm.no_show_reason.trim() || null,
+        occurred,
+        no_show_type: noShowTypeForRow,
+        no_show_reason: occurred ? null : (editForm.no_show_reason.trim() || null),
         session_goals: rebuilt,
       };
     }));
@@ -496,31 +513,43 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                       />
                     </div>
                   </div>
-                  <label className="flex items-start gap-3 cursor-pointer pt-1">
-                    <input
-                      type="checkbox"
-                      checked={editForm.occurred}
-                      onChange={(e) => setEditForm({ ...editForm, occurred: e.target.checked })}
-                      className="mt-0.5 w-4 h-4 cursor-pointer accent-teal-600"
-                    />
-                    <div>
-                      <p className="text-[13px] font-medium text-slate-700">Session occurred</p>
-                      <p className="text-[12px] text-slate-400">Uncheck if the session did not happen.</p>
+                  <div>
+                    <p className="text-[12px] font-medium text-slate-500 mb-1.5">Attendance</p>
+                    <div className="space-y-1">
+                      {([
+                        { value: "occurred", label: "Session occurred" },
+                        { value: "student_absent", label: "Student absent" },
+                        { value: "school_activity", label: "School activity" },
+                        { value: "school_closure", label: "School closure" },
+                      ] as { value: EditAttendance; label: string }[]).map((opt) => (
+                        <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`attendance-${session.id}`}
+                            value={opt.value}
+                            checked={editForm.attendance === opt.value}
+                            onChange={() => setEditForm({ ...editForm, attendance: opt.value })}
+                            className="w-4 h-4 cursor-pointer accent-teal-600"
+                          />
+                          <span className="text-[13px] text-slate-700">{opt.label}</span>
+                        </label>
+                      ))}
                     </div>
-                  </label>
-                  {!editForm.occurred && (
+                  </div>
+                  {editForm.attendance === "school_activity" && (
                     <div>
-                      <label className="block text-[12px] font-medium text-slate-500 mb-1">Reason session did not occur</label>
-                      <textarea
+                      <label className="block text-[12px] font-medium text-slate-500 mb-1">
+                        What kind of school activity? <span className="text-red-500">*</span>
+                      </label>
+                      <input
                         value={editForm.no_show_reason}
                         onChange={(e) => setEditForm({ ...editForm, no_show_reason: e.target.value })}
-                        rows={2}
                         className={`w-full ${inputClass}`}
-                        placeholder="e.g. Student absent, sick, scheduling conflict"
+                        placeholder="e.g. Field trip, assembly, testing"
                       />
                     </div>
                   )}
-                  {editForm.occurred && (
+                  {editForm.attendance === "occurred" && (
                     <div className="space-y-2 mt-2">
                       <p className="text-[12px] font-medium text-slate-500">Goal data</p>
                       {(() => {
@@ -669,7 +698,10 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                       )}
                       {session.occurred === false && (
                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700">
-                          Did not occur
+                          {session.no_show_type === "student_absent" ? "Student absent"
+                            : session.no_show_type === "school_activity" ? "School activity"
+                            : session.no_show_type === "school_closure" ? "School closure"
+                            : "Did not occur"}
                         </span>
                       )}
                     </div>
@@ -724,7 +756,10 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                   )}
                   {session.no_show_reason && (
                     <p className="text-xs text-amber-700 mt-2">
-                      <span className="font-medium">Reason:</span> {session.no_show_reason}
+                      <span className="font-medium">
+                        {session.no_show_type === "school_activity" ? "Activity:" : "Reason:"}
+                      </span>{" "}
+                      {session.no_show_reason}
                     </p>
                   )}
                   {session.notes && (
