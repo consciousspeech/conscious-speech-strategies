@@ -30,6 +30,8 @@ function groupKeyFor(schoolId: string, schoolName: string): { key: string; label
 }
 
 // Parse "9:00-9:30 AM", "9:00 AM - 9:45 AM", "9-9:30 am" → { start, end } in minutes.
+// Work hours are 8am–3pm, so a bare hour of 1, 2, or 3 (no AM/PM entered)
+// is assumed to mean PM. Every other bare hour stays AM.
 function parseTimeRange(raw: string | null): { start: number; end: number } | null {
   if (!raw) return null;
   const s = raw.trim().toLowerCase().replace(/[–—]/g, "-");
@@ -42,7 +44,8 @@ function parseTimeRange(raw: string | null): { start: number; end: number } | nu
     const min = mm ? parseInt(mm) : 0;
     const ampm = (ap || otherAp || "").replace(/\./g, "").toLowerCase();
     if (ampm.startsWith("p") && hr < 12) hr += 12;
-    if (ampm.startsWith("a") && hr === 12) hr = 0;
+    else if (ampm.startsWith("a") && hr === 12) hr = 0;
+    else if (!ampm && hr >= 1 && hr <= 3) hr += 12; // afternoon-by-default within work hours
     return hr * 60 + min;
   };
   const start = parseTime(m[1], m[2], m[3], m[6]);
