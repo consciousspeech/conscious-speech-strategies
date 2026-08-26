@@ -12,6 +12,7 @@ interface ScheduleSession {
   service_type: "pull_out" | "push_in" | null;
   push_in_notes: string | null;
   occurred: boolean | null;
+  no_show_type: "student_absent" | "school_activity" | "school_closure" | null;
   student: { id: string; name: string; school: { id: string; name: string; archived: boolean } | null } | null;
 }
 
@@ -166,7 +167,7 @@ export default function SchedulePage() {
       const [{ data: sessData }, { data: studData }] = await Promise.all([
         supabase
           .from("sessions")
-          .select("id, date, service_time, service_type, push_in_notes, occurred, student:students(id, name, school:schools(id, name, archived))")
+          .select("id, date, service_time, service_type, push_in_notes, occurred, no_show_type, student:students(id, name, school:schools(id, name, archived))")
           .gte("date", isoDate(weekStart))
           .lte("date", isoDate(weekEnd))
           .order("date"),
@@ -231,12 +232,18 @@ export default function SchedulePage() {
       bucket.roster.push(st);
     }
 
-    // Compute unseen (had no occurred session this week) per group.
+    // A student counts as "seen" if the session occurred, OR if it didn't
+    // occur for a reason outside our control (student absent, school closed).
+    // A school-activity pull-out doesn't count — we could have seen them.
     return Array.from(map.values())
       .map((g) => {
         const seenIds = new Set(
           g.sessions
-            .filter((s) => s.occurred !== false && s.student?.id)
+            .filter((s) => {
+              if (!s.student?.id) return false;
+              if (s.occurred !== false) return true;
+              return s.no_show_type === "student_absent" || s.no_show_type === "school_closure";
+            })
             .map((s) => s.student!.id)
         );
         const unseenStudents = g.roster
@@ -419,27 +426,31 @@ function SchoolSchedule({
                   const height = Math.max(PIXELS_PER_SLOT * 1.5, ((s.end - s.start) / SLOT_MINUTES) * PIXELS_PER_SLOT);
                   const pal = paletteFor(s.student?.id);
                   const didNotOccur = s.occurred === false;
+                  const noShowLabel =
+                    s.no_show_type === "student_absent" ? "absent" :
+                    s.no_show_type === "school_activity" ? "school activity" :
+                    s.no_show_type === "school_closure" ? "school closed" : null;
                   const widthPct = 100 / s.lanes;
                   const leftPct = s.lane * widthPct;
                   return (
                     <Link
                       key={s.id}
                       href={`/admin/students/${s.student?.id}`}
-                      className={`absolute rounded-md border px-1.5 py-1 overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${pal.bg} ${pal.text} ${pal.border} ${didNotOccur ? "opacity-60 line-through decoration-1" : ""}`}
+                      className={`absolute rounded-md border px-1.5 py-1 overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${pal.bg} ${pal.text} ${pal.border} ${didNotOccur ? "opacity-60" : ""}`}
                       style={{
                         top,
                         height,
                         left: `calc(${leftPct}% + 2px)`,
                         width: `calc(${widthPct}% - 4px)`,
                       }}
-                      title={`${s.student?.name} · ${formatMinutes(s.start)}–${formatMinutes(s.end)}${s.push_in_notes ? " · " + s.push_in_notes : ""}`}
+                      title={`${s.student?.name} · ${formatMinutes(s.start)}–${formatMinutes(s.end)}${noShowLabel ? " · " + noShowLabel : ""}${s.push_in_notes ? " · " + s.push_in_notes : ""}`}
                     >
-                      <p className="text-[11px] font-semibold leading-tight truncate">
+                      <p className={`text-[11px] font-semibold leading-tight truncate ${didNotOccur ? "line-through decoration-1" : ""}`}>
                         {s.student?.name}
                       </p>
                       <p className="text-[10px] leading-tight opacity-75 truncate">
                         {formatMinutes(s.start).replace(" ", "").toLowerCase()}–{formatMinutes(s.end).replace(" ", "").toLowerCase()}
-                        {s.service_type === "push_in" ? " · push-in" : ""}
+                        {noShowLabel ? " · " + noShowLabel : s.service_type === "push_in" ? " · push-in" : ""}
                       </p>
                     </Link>
                   );
@@ -488,7 +499,7 @@ function SchoolSchedule({
             <p className="text-[12px] font-semibold text-amber-800">
               Not seen this week ({unseenStudents.length})
             </p>
-            <p className="text-[10px] text-amber-700/70">No-shows don&apos;t count as seen.</p>
+            <p className="text-[10px] text-amber-700/70">Absences &amp; school closures still count as seen; only sessions never held (or lost to a school activity) are listed here.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {unseenStudents.map((st) => (
