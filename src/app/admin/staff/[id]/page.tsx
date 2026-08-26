@@ -23,15 +23,17 @@ export default function EditStaffPage() {
   const [archived, setArchived] = useState(false);
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolRates, setSchoolRates] = useState<Record<string, SchoolRateRow>>({});
+  const [assignedSchools, setAssignedSchools] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [{ data: profile }, { data: schoolList }, { data: rates }] = await Promise.all([
+      const [{ data: profile }, { data: schoolList }, { data: rates }, { data: assignments }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", id).single(),
         supabase.from("schools").select("*").eq("archived", false).order("name"),
         supabase.from("profile_school_rates").select("*").eq("profile_id", id),
+        supabase.from("staff_schools").select("school_id").eq("profile_id", id),
       ]);
 
       if (profile) {
@@ -55,10 +57,21 @@ export default function EditStaffPage() {
       });
       setSchoolRates(map);
 
+      setAssignedSchools(new Set((assignments || []).map((a: { school_id: string }) => a.school_id)));
+
       setLoading(false);
     }
     load();
   }, [id]);
+
+  function toggleAssignment(schoolId: string) {
+    setAssignedSchools((prev) => {
+      const next = new Set(prev);
+      if (next.has(schoolId)) next.delete(schoolId);
+      else next.add(schoolId);
+      return next;
+    });
+  }
 
   function updateSchoolRate(schoolId: string, field: "external_rate" | "internal_rate", value: string) {
     setSchoolRates((prev) => ({
@@ -131,6 +144,38 @@ export default function EditStaffPage() {
         .in("school_id", toDelete);
       if (delErr) {
         alert("Error clearing school rates: " + delErr.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    // Reconcile staff-school assignments: insert new ones, delete removed ones.
+    const { data: existingAssignments } = await supabase
+      .from("staff_schools")
+      .select("school_id")
+      .eq("profile_id", id);
+    const existingSet = new Set((existingAssignments || []).map((a: { school_id: string }) => a.school_id));
+    const toAssign = Array.from(assignedSchools).filter((sid) => !existingSet.has(sid));
+    const toUnassign = Array.from(existingSet).filter((sid) => !assignedSchools.has(sid));
+
+    if (toAssign.length > 0) {
+      const { error: aErr } = await supabase
+        .from("staff_schools")
+        .insert(toAssign.map((school_id) => ({ profile_id: id, school_id })));
+      if (aErr) {
+        alert("Error saving school assignments: " + aErr.message);
+        setSaving(false);
+        return;
+      }
+    }
+    if (toUnassign.length > 0) {
+      const { error: uErr } = await supabase
+        .from("staff_schools")
+        .delete()
+        .eq("profile_id", id)
+        .in("school_id", toUnassign);
+      if (uErr) {
+        alert("Error clearing school assignments: " + uErr.message);
         setSaving(false);
         return;
       }
@@ -221,6 +266,26 @@ export default function EditStaffPage() {
                 placeholder="0.00" className={inputClass} />
               <p className="text-[11px] text-slate-400 mt-1">Used for school invoices</p>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-6 space-y-4">
+          <div>
+            <p className="text-[13px] font-medium text-slate-700">School Assignments</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Which schools this staff member can see and log for. (Admins see everything regardless.)</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {schools.map((s) => (
+              <label key={s.id} className="inline-flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer p-2 rounded-md hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={assignedSchools.has(s.id)}
+                  onChange={() => toggleAssignment(s.id)}
+                  className="rounded border-slate-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer"
+                />
+                {s.name}
+              </label>
+            ))}
           </div>
         </div>
 

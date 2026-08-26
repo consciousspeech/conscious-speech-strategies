@@ -24,6 +24,15 @@ export interface ProfileSchoolRate {
   school?: School;
 }
 
+export interface StaffSchool {
+  id: string;
+  profile_id: string;
+  school_id: string;
+  created_at: string;
+  // joined
+  school?: School;
+}
+
 export interface School {
   id: string;
   name: string;
