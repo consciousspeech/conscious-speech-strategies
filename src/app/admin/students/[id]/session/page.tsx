@@ -11,7 +11,7 @@ function getDefaultPullOutRoom(schoolName: string | null | undefined): string | 
   if (!schoolName) return null;
   const s = schoolName.toLowerCase();
   if (s.includes("slam") && s.includes("tampa")) return "Room 217";
-  if (s.includes("waterset")) return "Room 128";
+  if (s.includes("waterset")) return "Room 134";
   return null;
 }
 
