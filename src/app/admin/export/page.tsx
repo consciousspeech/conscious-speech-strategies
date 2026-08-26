@@ -18,7 +18,7 @@ export default function ExportPage() {
   useEffect(() => {
     Promise.all([
       supabase.from("students").select("*, school:schools(name)").eq("archived", false).order("name"),
-      supabase.from("schools").select("*").order("name"),
+      supabase.from("schools").select("*").eq("archived", false).order("name"),
     ]).then(([{ data: s }, { data: sc }]) => {
       if (s) setStudents(s as Student[]);
       if (sc) setSchools(sc);

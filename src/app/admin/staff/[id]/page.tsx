@@ -30,7 +30,7 @@ export default function EditStaffPage() {
     async function load() {
       const [{ data: profile }, { data: schoolList }, { data: rates }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", id).single(),
-        supabase.from("schools").select("*").order("name"),
+        supabase.from("schools").select("*").eq("archived", false).order("name"),
         supabase.from("profile_school_rates").select("*").eq("profile_id", id),
       ]);
 

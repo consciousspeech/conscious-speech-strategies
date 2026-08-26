@@ -8,6 +8,7 @@ export default function SchoolsPage() {
   const supabase = createClient();
   const [schools, setSchools] = useState<School[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", address: "", contact_name: "", contact_email: "", district_number: "" });
 
@@ -52,13 +53,30 @@ export default function SchoolsPage() {
     setShowForm(true);
   }
 
+  async function toggleArchive(school: School) {
+    const nowArchived = !school.archived;
+    const label = nowArchived ? "archive" : "restore";
+    if (!confirm(`${nowArchived ? "Archive" : "Restore"} "${school.name}"? ${nowArchived ? "It will be hidden from every school selector, but the students, sessions, and invoice history stay intact." : ""}`)) return;
+    const { error } = await supabase.from("schools").update({ archived: nowArchived }).eq("id", school.id);
+    if (error) return alert(`Error trying to ${label}: ${error.message}`);
+    loadSchools();
+  }
+
   const inputClass = "w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white outline-none transition-all text-sm text-slate-900 placeholder:text-slate-400";
+
+  const visibleSchools = schools.filter((s) => showArchived || !s.archived);
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Schools</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-[13px] text-slate-500 cursor-pointer">
+            <input type="checkbox" checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer" />
+            Show archived
+          </label>
           {schools.length === 0 && (
             <button
               onClick={seedSchools}
@@ -107,12 +125,19 @@ export default function SchoolsPage() {
       )}
 
       <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm">
-        {schools.length > 0 ? (
+        {visibleSchools.length > 0 ? (
           <div className="divide-y divide-slate-100">
-            {schools.map((school) => (
-              <div key={school.id} className="px-5 py-4 flex items-center justify-between">
+            {visibleSchools.map((school) => (
+              <div key={school.id} className={`px-5 py-4 flex items-center justify-between ${school.archived ? "opacity-60" : ""}`}>
                 <div>
-                  <p className="font-medium text-slate-900 text-[14px]">{school.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-slate-900 text-[14px]">{school.name}</p>
+                    {school.archived && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">
+                        Archived
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[13px] text-slate-400 mt-0.5">
                     {[school.district_number && `District ${school.district_number}`, school.address, school.contact_name, school.contact_email].filter(Boolean).join(" · ")}
                   </p>
@@ -125,14 +150,10 @@ export default function SchoolsPage() {
                     Edit
                   </button>
                   <button
-                    onClick={async () => {
-                      if (!confirm(`Delete "${school.name}" and all its students? This cannot be undone.`)) return;
-                      await supabase.from("schools").delete().eq("id", school.id);
-                      loadSchools();
-                    }}
-                    className="text-[13px] text-red-500 hover:text-red-700 font-medium cursor-pointer"
+                    onClick={() => toggleArchive(school)}
+                    className={`text-[13px] font-medium cursor-pointer ${school.archived ? "text-teal-600 hover:text-teal-700" : "text-slate-500 hover:text-slate-700"}`}
                   >
-                    Delete
+                    {school.archived ? "Restore" : "Archive"}
                   </button>
                 </div>
               </div>
@@ -140,7 +161,9 @@ export default function SchoolsPage() {
           </div>
         ) : (
           <p className="px-5 py-10 text-center text-slate-400 text-sm">
-            No schools added yet. Add your first school to get started.
+            {schools.length === 0
+              ? "No schools added yet. Add your first school to get started."
+              : "No active schools. Toggle “Show archived” to see closed campuses."}
           </p>
         )}
       </div>

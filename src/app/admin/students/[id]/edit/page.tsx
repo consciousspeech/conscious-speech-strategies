@@ -28,7 +28,7 @@ export default function EditStudentPage() {
     const [{ data: student }, { data: goalsData }, { data: schoolsData }] = await Promise.all([
       supabase.from("students").select("*").eq("id", studentId).single(),
       supabase.from("goals").select("*").eq("student_id", studentId).eq("archived", false).is("iep_year", null).order("goal_number"),
-      supabase.from("schools").select("*").order("name"),
+      supabase.from("schools").select("*").eq("archived", false).order("name"),
     ]);
     if (student) {
       setForm({

@@ -45,7 +45,7 @@ export default function EditHoursPage() {
 
       const [{ data: entry }, { data: sc }, { data: profiles }] = await Promise.all([
         supabase.from("hours").select("*").eq("id", id).single(),
-        supabase.from("schools").select("*").order("name"),
+        supabase.from("schools").select("*").eq("archived", false).order("name"),
         adminFlag
           ? supabase.from("profiles").select("*").eq("archived", false).order("name")
           : Promise.resolve({ data: null as Profile[] | null }),

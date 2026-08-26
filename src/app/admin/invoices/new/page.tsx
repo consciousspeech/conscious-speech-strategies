@@ -40,7 +40,7 @@ export default function NewInvoicePage() {
   }
 
   useEffect(() => {
-    supabase.from("schools").select("*").order("name").then(({ data }) => {
+    supabase.from("schools").select("*").eq("archived", false).order("name").then(({ data }) => {
       if (data) setSchools(data);
     });
     supabase.from("profiles").select("id, name, archived").order("name").then(({ data }) => {

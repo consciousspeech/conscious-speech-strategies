@@ -23,7 +23,7 @@ export default function LogHoursPage() {
   const timeError = form.time_in && form.time_out && totalHours === null ? "Time out must be after time in." : null;
 
   useEffect(() => {
-    supabase.from("schools").select("*").order("name").then(({ data }) => {
+    supabase.from("schools").select("*").eq("archived", false).order("name").then(({ data }) => {
       if (data) setSchools(data);
     });
   }, []);

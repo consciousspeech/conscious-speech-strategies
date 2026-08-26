@@ -50,7 +50,7 @@ export default function HoursPage() {
         if (data) setStaff(data);
       }
 
-      const { data: sc } = await supabase.from("schools").select("*").order("name");
+      const { data: sc } = await supabase.from("schools").select("*").eq("archived", false).order("name");
       if (sc) setSchools(sc);
 
       setReady(true);

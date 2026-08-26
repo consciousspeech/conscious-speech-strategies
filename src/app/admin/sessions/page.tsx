@@ -19,7 +19,7 @@ export default function SessionsPage() {
   async function loadFilters() {
     const [{ data: s }, { data: sc }] = await Promise.all([
       supabase.from("profiles").select("*").eq("archived", false).order("name"),
-      supabase.from("schools").select("*").order("name"),
+      supabase.from("schools").select("*").eq("archived", false).order("name"),
     ]);
     if (s) setStaff(s);
     if (sc) setSchools(sc);

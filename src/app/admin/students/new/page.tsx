@@ -18,7 +18,7 @@ export default function NewStudentPage() {
   const [goals, setGoals] = useState([{ description: "" }]);
 
   useEffect(() => {
-    supabase.from("schools").select("*").order("name").then(({ data }) => {
+    supabase.from("schools").select("*").eq("archived", false).order("name").then(({ data }) => {
       if (data) setSchools(data);
     });
   }, []);

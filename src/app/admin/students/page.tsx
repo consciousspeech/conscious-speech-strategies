@@ -30,7 +30,7 @@ export default function StudentsPage() {
         .select("*, school:schools(name)")
         .eq("archived", true)
         .order("name"),
-      supabase.from("schools").select("*").order("name"),
+      supabase.from("schools").select("*").eq("archived", false).order("name"),
     ]);
     if (studentsData) setStudents(studentsData as Student[]);
     if (archived) setArchivedStudents(archived as Student[]);

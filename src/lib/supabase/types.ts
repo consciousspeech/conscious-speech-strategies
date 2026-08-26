@@ -31,6 +31,7 @@ export interface School {
   contact_name: string | null;
   contact_email: string | null;
   district_number: string | null;
+  archived: boolean;
   created_at: string;
 }
 
