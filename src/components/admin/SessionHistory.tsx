@@ -29,6 +29,7 @@ interface SessionData {
   service_time?: string | null;
   service_type?: "pull_out" | "push_in" | null;
   push_in_notes?: string | null;
+  is_makeup?: boolean;
   entered_by_profile: { name: string } | null;
   session_goals: SessionGoalData[];
 }
@@ -123,6 +124,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
     push_in_notes: string;
     attendance: EditAttendance;
     no_show_reason: string;
+    is_makeup: boolean;
     // goal_id → variant entries (existing session_goals + any newly added)
     goalEntries: Record<string, EditGoalEntry[]>;
     // Original session_goal ids at edit start (for detecting deletions on save)
@@ -135,6 +137,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
     push_in_notes: "",
     attendance: "occurred",
     no_show_reason: "",
+    is_makeup: false,
     goalEntries: {},
     originalSessionGoalIds: [],
   });
@@ -233,6 +236,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       push_in_notes: session.push_in_notes || "",
       attendance,
       no_show_reason: session.no_show_reason || "",
+      is_makeup: session.is_makeup ?? false,
       goalEntries,
       originalSessionGoalIds,
     });
@@ -281,6 +285,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       occurred,
       no_show_type: occurred ? null : editForm.attendance,
       no_show_reason: occurred ? null : (editForm.no_show_reason.trim() || null),
+      is_makeup: editForm.is_makeup,
     }).eq("id", sessionId);
 
     // 2. Reconcile session_goals: UPDATE existing, INSERT new, DELETE removed
@@ -401,6 +406,7 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
         occurred,
         no_show_type: noShowTypeForRow,
         no_show_reason: occurred ? null : (editForm.no_show_reason.trim() || null),
+        is_makeup: editForm.is_makeup,
         session_goals: rebuilt,
       };
     }));
@@ -513,6 +519,15 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                       />
                     </div>
                   </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.is_makeup}
+                      onChange={(e) => setEditForm({ ...editForm, is_makeup: e.target.checked })}
+                      className="w-4 h-4 cursor-pointer accent-teal-600 rounded"
+                    />
+                    <span className="text-[13px] text-slate-700">Make-up session</span>
+                  </label>
                   <div>
                     <p className="text-[12px] font-medium text-slate-500 mb-1.5">Attendance</p>
                     <div className="space-y-1">
@@ -694,6 +709,11 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                       {session.service_type === "push_in" && (
                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-teal-100 text-teal-700">
                           Push-in
+                        </span>
+                      )}
+                      {session.is_makeup && (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-purple-100 text-purple-700">
+                          Make-up
                         </span>
                       )}
                       {session.occurred === false && (

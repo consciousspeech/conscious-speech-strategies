@@ -36,6 +36,7 @@ export default function NewSessionPage() {
   const [serviceTime, setServiceTime] = useState("");
   const [serviceType, setServiceType] = useState<"pull_out" | "push_in">("pull_out");
   const [pushInNotes, setPushInNotes] = useState("");
+  const [isMakeup, setIsMakeup] = useState(false);
 
   // Hydrate last-used service time / type from localStorage so re-entry is fast
   useEffect(() => {
@@ -138,6 +139,7 @@ export default function NewSessionPage() {
         service_time: serviceTime.trim() || null,
         service_type: serviceType,
         push_in_notes: effectivePushInNotes,
+        is_makeup: isMakeup,
       })
       .select()
       .single();
@@ -280,6 +282,15 @@ export default function NewSessionPage() {
                   📍 <span className="font-medium">{getDefaultPullOutRoom(schoolName)}</span> will be recorded for this pull-out session at {schoolName}.
                 </p>
               )}
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isMakeup}
+                  onChange={(e) => setIsMakeup(e.target.checked)}
+                  className="w-4 h-4 cursor-pointer accent-teal-600 rounded"
+                />
+                <span className="text-[13px] text-slate-700">Make-up session</span>
+              </label>
             </>
           )}
           <div>

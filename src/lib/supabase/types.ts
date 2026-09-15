@@ -101,6 +101,7 @@ export interface Session {
   service_time: string | null;
   service_type: "pull_out" | "push_in";
   push_in_notes: string | null;
+  is_makeup: boolean;
   created_at: string;
   // joined
   student?: Student;

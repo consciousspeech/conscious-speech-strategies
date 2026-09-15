@@ -77,7 +77,14 @@ export default function SessionsPage() {
             {sessions.map((session) => (
               <div key={session.id as string} className="px-5 py-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
                 <a href={`/admin/students/${session.student_id}`} className="flex-1 cursor-pointer">
-                  <p className="font-medium text-slate-900 text-[14px]">{(session.student as Record<string, unknown>)?.name as string}</p>
+                  <p className="font-medium text-slate-900 text-[14px] flex items-center gap-2">
+                    {(session.student as Record<string, unknown>)?.name as string}
+                    {Boolean(session.is_makeup) && (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-purple-100 text-purple-700">
+                        Make-up
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {((session.student as Record<string, unknown>)?.school as Record<string, unknown>)?.name as string}
                     {" · by "}
