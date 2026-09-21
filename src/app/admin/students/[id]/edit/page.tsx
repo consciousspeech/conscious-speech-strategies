@@ -27,9 +27,11 @@ export default function EditStudentPage() {
     parent_phone: "", parent_phone_2: "", parent_email: "", notes: "",
     required_minutes_per_week: "",
   });
-  // IEP service-minutes text, read-only here — shown so the weekly-minutes
-  // override can be compared against what the IEP actually says.
+  // Service-minutes text, read-only here — shown so the weekly-minutes override
+  // can be compared against what the records actually say. The current IEP's
+  // value wins over the student record, matching the weekly report.
   const [serviceMinutesText, setServiceMinutesText] = useState<string | null>(null);
+  const [iepServiceMinutesText, setIepServiceMinutesText] = useState<string | null>(null);
   const [existingGoals, setExistingGoals] = useState<Goal[]>([]);
   const [newGoals, setNewGoals] = useState<{ description: string }[]>([]);
 
@@ -38,11 +40,13 @@ export default function EditStudentPage() {
   }, [studentId]);
 
   async function loadData() {
-    const [{ data: student }, { data: goalsData }, { data: schoolsData }] = await Promise.all([
+    const [{ data: student }, { data: goalsData }, { data: schoolsData }, { data: iepMeta }] = await Promise.all([
       supabase.from("students").select("*").eq("id", studentId).single(),
       supabase.from("goals").select("*").eq("student_id", studentId).eq("archived", false).is("iep_year", null).order("goal_number"),
       supabase.from("schools").select("*").eq("archived", false).order("name"),
+      supabase.from("student_ieps").select("service_minutes").eq("student_id", studentId).is("iep_year", null).maybeSingle(),
     ]);
+    setIepServiceMinutesText(iepMeta?.service_minutes ?? null);
     if (student) {
       setForm({
         name: student.name,
@@ -188,6 +192,7 @@ export default function EditStudentPage() {
                 placeholder="Leave blank to read it from the IEP"
               />
               <WeeklyMinutesHint
+                iepServiceMinutes={iepServiceMinutesText}
                 serviceMinutes={serviceMinutesText}
                 override={form.required_minutes_per_week}
               />
@@ -278,21 +283,27 @@ export default function EditStudentPage() {
  * override only has to be filled in for IEP text the parser can't read.
  */
 function WeeklyMinutesHint({
+  iepServiceMinutes,
   serviceMinutes,
   override,
 }: {
+  iepServiceMinutes: string | null;
   serviceMinutes: string | null;
   override: string;
 }) {
   const overrideValue = parseOverrideMinutes(override);
-  const parsed = getWeeklyRequirement(serviceMinutes, null);
-  const iepText = serviceMinutes?.trim();
+  const parsed = getWeeklyRequirement({
+    iepText: iepServiceMinutes,
+    studentText: serviceMinutes,
+  });
+  // Name the record the number came from, so it's obvious which one to edit.
+  const whereFrom = parsed.source === "iep" ? "the current IEP" : "the student record";
 
   if (overrideValue) {
     return (
       <p className="text-[11px] text-teal-700 mt-1.5">
         Weekly report will use <span className="font-medium">{overrideValue} min/week</span>
-        {iepText ? <> — overriding the IEP text &ldquo;{iepText}&rdquo;</> : null}.
+        {parsed.text ? <> — overriding {whereFrom}, which says &ldquo;{parsed.text}&rdquo;</> : null}.
       </p>
     );
   }
@@ -300,7 +311,7 @@ function WeeklyMinutesHint({
   if (parsed.minutes) {
     return (
       <p className="text-[11px] text-slate-400 mt-1.5">
-        Read from the IEP{iepText ? <> &ldquo;{iepText}&rdquo;</> : null}:{" "}
+        Read from {whereFrom} (&ldquo;{parsed.text}&rdquo;):{" "}
         <span className="font-medium text-slate-600">{parsed.minutes} min/week</span>. No need to set anything here.
       </p>
     );
@@ -314,7 +325,8 @@ function WeeklyMinutesHint({
 
   return (
     <p className="text-[11px] text-amber-700 mt-1.5">
-      Not tracked on the weekly report{iepText ? <> — the IEP says &ldquo;{iepText}&rdquo;, and {why}</> : <> — {why}</>}.
+      Not tracked on the weekly report
+      {parsed.text ? <> — {whereFrom} says &ldquo;{parsed.text}&rdquo;, and {why}</> : <> — {why}</>}.
       Enter a number above to include this student.
     </p>
   );

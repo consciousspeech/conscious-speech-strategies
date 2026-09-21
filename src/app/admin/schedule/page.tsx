@@ -21,7 +21,10 @@ interface ScheduleStudent {
   id: string;
   name: string;
   school_id: string;
+  /** `students.service_minutes` — the import field, a fallback only. */
   service_minutes: string | null;
+  /** `service_minutes` from the student's current IEP, which takes precedence. */
+  iep_service_minutes: string | null;
   required_minutes_per_week: number | null;
   school: { id: string; name: string; archived: boolean } | null;
 }
@@ -179,7 +182,7 @@ export default function SchedulePage() {
     let cancelled = false;
     async function load() {
       setLoading(true);
-      const [{ data: sessData }, { data: studData }] = await Promise.all([
+      const [{ data: sessData }, { data: studData }, { data: iepData }] = await Promise.all([
         supabase
           .from("sessions")
           .select("id, date, service_time, service_type, push_in_notes, occurred, no_show_type, student:students(id, name, school:schools(id, name, archived))")
@@ -191,10 +194,25 @@ export default function SchedulePage() {
           .select("id, name, school_id, service_minutes, required_minutes_per_week, school:schools(id, name, archived)")
           .eq("archived", false)
           .order("name"),
+        // Current IEP only (iep_year null). Its service minutes are kept up to
+        // date as IEPs are revised, so they win over students.service_minutes.
+        supabase
+          .from("student_ieps")
+          .select("student_id, service_minutes")
+          .is("iep_year", null),
       ]);
       if (!cancelled) {
+        const iepByStudent = new Map<string, string | null>(
+          ((iepData || []) as { student_id: string; service_minutes: string | null }[])
+            .map((r) => [r.student_id, r.service_minutes])
+        );
         setSessions((sessData || []) as unknown as ScheduleSession[]);
-        setStudents((studData || []) as unknown as ScheduleStudent[]);
+        setStudents(
+          ((studData || []) as unknown as ScheduleStudent[]).map((s) => ({
+            ...s,
+            iep_service_minutes: iepByStudent.get(s.id) ?? null,
+          }))
+        );
         if (!includeWeekend && (sessData || []).some((s: { date: string }) => {
           const d = new Date(s.date + "T00:00:00");
           const dayIdx = (d.getDay() + 6) % 7;
@@ -285,7 +303,11 @@ export default function SchedulePage() {
         const shortfallStudents: ShortfallStudent[] = g.roster
           .filter((st) => seenIds.has(st.id))
           .map((st) => {
-            const { minutes: required } = getWeeklyRequirement(st.service_minutes, st.required_minutes_per_week);
+            const { minutes: required } = getWeeklyRequirement({
+              iepText: st.iep_service_minutes,
+              studentText: st.service_minutes,
+              override: st.required_minutes_per_week,
+            });
             const tally = minutesByStudent.get(st.id) || { delivered: 0, excused: 0 };
             return { student: st, required: required ?? 0, delivered: tally.delivered, excused: tally.excused };
           })
@@ -581,7 +603,7 @@ function SchoolSchedule({
                     `${delivered} min delivered` +
                     (excused > 0 ? ` · ${excused} min excused (absence or closure)` : "") +
                     ` · ${required} min required` +
-                    `\nIEP: ${student.service_minutes || "not recorded"}`
+                    `\nIEP: ${student.iep_service_minutes || student.service_minutes || "not recorded"}`
                   }
                   className="inline-flex items-center gap-1.5 rounded-md bg-white border border-orange-200 text-orange-900 px-2 py-1 text-[12px] font-medium hover:bg-orange-100 hover:border-orange-300 transition-colors cursor-pointer">
                   {student.name}

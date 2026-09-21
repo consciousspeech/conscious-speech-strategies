@@ -12,13 +12,24 @@
 export interface WeeklyRequirement {
   /** Required minutes per week, or null when we can't determine one. */
   minutes: number | null;
-  /** Where the number came from — drives whether we show a "set this" hint. */
-  source: "override" | "parsed" | "none";
+  /** Which input was consulted — drives whether we show a "set this" hint. */
+  source: "override" | "iep" | "student" | "none";
   /**
    * Why nothing was parsed. Lets the UI explain itself instead of silently
    * dropping a student out of the report.
    */
   reason?: "consult" | "monthly" | "unrecognized" | "empty";
+  /** The text the answer was read from, for display alongside the number. */
+  text?: string;
+}
+
+export interface WeeklyRequirementInput {
+  /** `service_minutes` on the student's CURRENT IEP record — authoritative. */
+  iepText?: string | null;
+  /** `students.service_minutes` — the older import field, used as a fallback. */
+  studentText?: string | null;
+  /** `students.required_minutes_per_week` — a hand-set value that beats both. */
+  override?: number | null;
 }
 
 /** Matches "30 MPW", "30 mins weekly", "30 min/week", "30 minutes per week". */
@@ -63,33 +74,49 @@ function collectWeeklyMatches(text: string): { value: number; start: number; end
   return kept;
 }
 
+/** Read one service-minutes string. Does not decide which string to read. */
+function readText(text: string): { minutes: number | null; reason?: WeeklyRequirement["reason"] } {
+  const weekly = collectWeeklyMatches(text);
+  if (weekly.length > 0) {
+    return { minutes: weekly.reduce((sum, m) => sum + m.value, 0) };
+  }
+  if (MONTHLY_PATTERN.test(text)) return { minutes: null, reason: "monthly" };
+  if (CONSULT_PATTERN.test(text)) return { minutes: null, reason: "consult" };
+  return { minutes: null, reason: "unrecognized" };
+}
+
 /**
  * Work out a student's weekly required minutes.
  *
- * A manual override always wins. Otherwise we read the IEP text. Anything we
- * can't read weekly minutes out of returns null, and the caller leaves that
- * student out of the shortfall report rather than guessing at a number.
+ * Precedence is deliberate:
+ *   1. A hand-set `required_minutes_per_week` always wins.
+ *   2. Otherwise the CURRENT IEP's service minutes, which is the field kept up
+ *      to date as IEPs are revised.
+ *   3. Only if that is blank, `students.service_minutes` — the original import
+ *      field, which goes stale once an IEP is edited.
+ *
+ * Note that a current IEP saying "Consult" is an ANSWER, not a blank: it means
+ * no weekly direct service, and we must not fall through to a stale student
+ * record still claiming "30 MPW". Falling through there would flag a
+ * consult-only student as short every week.
+ *
+ * Anything we can't read weekly minutes out of returns null, and the caller
+ * leaves that student out of the shortfall report rather than inventing one.
  */
-export function getWeeklyRequirement(
-  serviceMinutes: string | null | undefined,
-  override: number | null | undefined
-): WeeklyRequirement {
+export function getWeeklyRequirement(input: WeeklyRequirementInput): WeeklyRequirement {
+  const { iepText, studentText, override } = input;
+
   if (typeof override === "number" && Number.isFinite(override) && override > 0) {
     return { minutes: Math.round(override), source: "override" };
   }
 
-  const text = (serviceMinutes || "").trim();
-  if (!text) return { minutes: null, source: "none", reason: "empty" };
+  const iep = (iepText || "").trim();
+  if (iep) return { ...readText(iep), source: "iep", text: iep };
 
-  const weekly = collectWeeklyMatches(text);
-  if (weekly.length > 0) {
-    const total = weekly.reduce((sum, m) => sum + m.value, 0);
-    return { minutes: total, source: "parsed" };
-  }
+  const student = (studentText || "").trim();
+  if (student) return { ...readText(student), source: "student", text: student };
 
-  if (MONTHLY_PATTERN.test(text)) return { minutes: null, source: "none", reason: "monthly" };
-  if (CONSULT_PATTERN.test(text)) return { minutes: null, source: "none", reason: "consult" };
-  return { minutes: null, source: "none", reason: "unrecognized" };
+  return { minutes: null, source: "none", reason: "empty" };
 }
 
 /** Sessions logged before we captured per-session time are assumed standard 30s. */
