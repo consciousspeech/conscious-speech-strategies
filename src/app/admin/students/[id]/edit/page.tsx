@@ -4,6 +4,15 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import type { School, Goal } from "@/lib/supabase/types";
+import { getWeeklyRequirement } from "@/lib/service-minutes";
+
+/** Blank clears the override (back to reading the IEP text); junk is ignored. */
+function parseOverrideMinutes(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = parseInt(trimmed, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 export default function EditStudentPage() {
   const supabase = createClient();
@@ -16,7 +25,11 @@ export default function EditStudentPage() {
     name: "", school_id: "", student_number: "", date_of_birth: "", grade: "",
     teacher: "", eligibility: "", iep_re_eval_date: "",
     parent_phone: "", parent_phone_2: "", parent_email: "", notes: "",
+    required_minutes_per_week: "",
   });
+  // IEP service-minutes text, read-only here — shown so the weekly-minutes
+  // override can be compared against what the IEP actually says.
+  const [serviceMinutesText, setServiceMinutesText] = useState<string | null>(null);
   const [existingGoals, setExistingGoals] = useState<Goal[]>([]);
   const [newGoals, setNewGoals] = useState<{ description: string }[]>([]);
 
@@ -44,7 +57,10 @@ export default function EditStudentPage() {
         parent_phone_2: student.parent_phone_2 || "",
         parent_email: student.parent_email || "",
         notes: student.notes || "",
+        required_minutes_per_week:
+          student.required_minutes_per_week != null ? String(student.required_minutes_per_week) : "",
       });
+      setServiceMinutesText(student.service_minutes ?? null);
     }
     if (goalsData) setExistingGoals(goalsData);
     if (schoolsData) setSchools(schoolsData);
@@ -71,6 +87,7 @@ export default function EditStudentPage() {
       parent_phone_2: form.parent_phone_2 || null,
       parent_email: form.parent_email || null,
       notes: form.notes || null,
+      required_minutes_per_week: parseOverrideMinutes(form.required_minutes_per_week),
     }).eq("id", studentId);
 
     // Update existing goals
@@ -158,6 +175,23 @@ export default function EditStudentPage() {
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Re-Eval Date</label>
               <input type="date" value={form.iep_re_eval_date} onChange={(e) => setForm({ ...form, iep_re_eval_date: e.target.value })} className={inputClass} />
             </div>
+            <div className="md:col-span-2">
+              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
+                Required Minutes / Week
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={form.required_minutes_per_week}
+                onChange={(e) => setForm({ ...form, required_minutes_per_week: e.target.value })}
+                className={inputClass}
+                placeholder="Leave blank to read it from the IEP"
+              />
+              <WeeklyMinutesHint
+                serviceMinutes={serviceMinutesText}
+                override={form.required_minutes_per_week}
+              />
+            </div>
             <div>
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Parent Phone</label>
               <input value={form.parent_phone} onChange={(e) => setForm({ ...form, parent_phone: e.target.value })} className={inputClass} />
@@ -236,5 +270,52 @@ export default function EditStudentPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+/**
+ * Explains what the weekly schedule report will use for this student, so the
+ * override only has to be filled in for IEP text the parser can't read.
+ */
+function WeeklyMinutesHint({
+  serviceMinutes,
+  override,
+}: {
+  serviceMinutes: string | null;
+  override: string;
+}) {
+  const overrideValue = parseOverrideMinutes(override);
+  const parsed = getWeeklyRequirement(serviceMinutes, null);
+  const iepText = serviceMinutes?.trim();
+
+  if (overrideValue) {
+    return (
+      <p className="text-[11px] text-teal-700 mt-1.5">
+        Weekly report will use <span className="font-medium">{overrideValue} min/week</span>
+        {iepText ? <> — overriding the IEP text &ldquo;{iepText}&rdquo;</> : null}.
+      </p>
+    );
+  }
+
+  if (parsed.minutes) {
+    return (
+      <p className="text-[11px] text-slate-400 mt-1.5">
+        Read from the IEP{iepText ? <> &ldquo;{iepText}&rdquo;</> : null}:{" "}
+        <span className="font-medium text-slate-600">{parsed.minutes} min/week</span>. No need to set anything here.
+      </p>
+    );
+  }
+
+  const why =
+    parsed.reason === "monthly" ? "those are monthly minutes" :
+    parsed.reason === "consult" ? "consult-only students have no weekly minutes" :
+    parsed.reason === "empty" ? "no service minutes are recorded" :
+    "the wording isn't one we can read";
+
+  return (
+    <p className="text-[11px] text-amber-700 mt-1.5">
+      Not tracked on the weekly report{iepText ? <> — the IEP says &ldquo;{iepText}&rdquo;, and {why}</> : <> — {why}</>}.
+      Enter a number above to include this student.
+    </p>
   );
 }

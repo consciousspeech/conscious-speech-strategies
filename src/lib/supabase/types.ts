@@ -54,6 +54,8 @@ export interface Student {
   teacher: string | null;
   eligibility: string | null;
   service_minutes: string | null;
+  /** Manual override; null means derive from `service_minutes` text. */
+  required_minutes_per_week: number | null;
   iep_date: string | null;
   iep_re_eval_date: string | null;
   parent_phone: string | null;

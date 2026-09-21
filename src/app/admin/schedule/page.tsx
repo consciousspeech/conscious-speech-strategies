@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatLocalDate } from "@/lib/utils";
+import { getWeeklyRequirement, getSessionMinutes } from "@/lib/service-minutes";
 
 interface ScheduleSession {
   id: string;
@@ -20,7 +21,21 @@ interface ScheduleStudent {
   id: string;
   name: string;
   school_id: string;
+  service_minutes: string | null;
+  required_minutes_per_week: number | null;
   school: { id: string; name: string; archived: boolean } | null;
+}
+
+/**
+ * A student who was seen this week but fell short of their weekly IEP minutes.
+ * `delivered` counts sessions that happened; `excused` covers time lost to a
+ * student absence or a school closure, which isn't ours to make up.
+ */
+interface ShortfallStudent {
+  student: ScheduleStudent;
+  required: number;
+  delivered: number;
+  excused: number;
 }
 
 // Fold every SLAM Tampa campus (Elementary/Middle/High) into a single group
@@ -173,7 +188,7 @@ export default function SchedulePage() {
           .order("date"),
         supabase
           .from("students")
-          .select("id, name, school_id, school:schools(id, name, archived)")
+          .select("id, name, school_id, service_minutes, required_minutes_per_week, school:schools(id, name, archived)")
           .eq("archived", false)
           .order("name"),
       ]);
@@ -235,21 +250,53 @@ export default function SchedulePage() {
     // A student counts as "seen" if the session occurred, OR if it didn't
     // occur for a reason outside our control (student absent, school closed).
     // A school-activity pull-out doesn't count — we could have seen them.
+    const countsAsSeen = (s: ScheduleSession) => {
+      if (s.occurred !== false) return true;
+      return s.no_show_type === "student_absent" || s.no_show_type === "school_closure";
+    };
+
     return Array.from(map.values())
       .map((g) => {
         const seenIds = new Set(
           g.sessions
-            .filter((s) => {
-              if (!s.student?.id) return false;
-              if (s.occurred !== false) return true;
-              return s.no_show_type === "student_absent" || s.no_show_type === "school_closure";
-            })
+            .filter((s) => s.student?.id && countsAsSeen(s))
             .map((s) => s.student!.id)
         );
         const unseenStudents = g.roster
           .filter((st) => !seenIds.has(st.id))
           .sort((a, b) => a.name.localeCompare(b.name));
-        return { ...g, unseenStudents };
+
+        // Minute-level check, for students we know a weekly requirement for.
+        // Students seen zero times are already covered by `unseenStudents`, so
+        // this only reports partial weeks — e.g. a 60 MPW student who got one
+        // 30-minute session. An absence or school closure is treated as time
+        // we can't be faulted for and closes the gap the same as a session.
+        const minutesByStudent = new Map<string, { delivered: number; excused: number }>();
+        for (const s of g.sessions) {
+          const id = s.student?.id;
+          if (!id) continue;
+          const bucket = minutesByStudent.get(id) || { delivered: 0, excused: 0 };
+          const mins = getSessionMinutes(s.service_time);
+          if (s.occurred !== false) bucket.delivered += mins;
+          else if (s.no_show_type === "student_absent" || s.no_show_type === "school_closure") bucket.excused += mins;
+          minutesByStudent.set(id, bucket);
+        }
+
+        const shortfallStudents: ShortfallStudent[] = g.roster
+          .filter((st) => seenIds.has(st.id))
+          .map((st) => {
+            const { minutes: required } = getWeeklyRequirement(st.service_minutes, st.required_minutes_per_week);
+            const tally = minutesByStudent.get(st.id) || { delivered: 0, excused: 0 };
+            return { student: st, required: required ?? 0, delivered: tally.delivered, excused: tally.excused };
+          })
+          .filter((r) => r.required > 0 && r.delivered + r.excused < r.required)
+          .sort((a, b) => {
+            const gapA = a.required - a.delivered - a.excused;
+            const gapB = b.required - b.delivered - b.excused;
+            return gapB - gapA || a.student.name.localeCompare(b.student.name);
+          });
+
+        return { ...g, unseenStudents, shortfallStudents };
       })
       .sort((a, b) => a.schoolName.localeCompare(b.schoolName));
   }, [sessions, students]);
@@ -309,6 +356,7 @@ export default function SchedulePage() {
               schoolName={group.schoolName}
               sessions={group.sessions}
               unseenStudents={group.unseenStudents}
+              shortfallStudents={group.shortfallStudents}
               weekStart={weekStart}
               dayCount={dayCount}
             />
@@ -323,12 +371,14 @@ function SchoolSchedule({
   schoolName,
   sessions,
   unseenStudents,
+  shortfallStudents,
   weekStart,
   dayCount,
 }: {
   schoolName: string;
   sessions: ScheduleSession[];
   unseenStudents: ScheduleStudent[];
+  shortfallStudents: ShortfallStudent[];
   weekStart: Date;
   dayCount: number;
 }) {
@@ -508,6 +558,39 @@ function SchoolSchedule({
                 {st.name}
               </Link>
             ))}
+          </div>
+        </div>
+      )}
+
+      {shortfallStudents.length > 0 && (
+        <div className="mt-3 bg-orange-50/50 rounded-xl border border-orange-200/70 shadow-sm p-4">
+          <div className="flex items-center justify-between mb-2 gap-3">
+            <p className="text-[12px] font-semibold text-orange-800">
+              Short on weekly minutes ({shortfallStudents.length})
+            </p>
+            <p className="text-[10px] text-orange-700/70">
+              Seen this week, but under their IEP minutes — e.g. a 60 MPW student with only one 30-minute session.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {shortfallStudents.map(({ student, required, delivered, excused }) => {
+              const covered = delivered + excused;
+              return (
+                <Link key={student.id} href={`/admin/students/${student.id}`}
+                  title={
+                    `${delivered} min delivered` +
+                    (excused > 0 ? ` · ${excused} min excused (absence or closure)` : "") +
+                    ` · ${required} min required` +
+                    `\nIEP: ${student.service_minutes || "not recorded"}`
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-md bg-white border border-orange-200 text-orange-900 px-2 py-1 text-[12px] font-medium hover:bg-orange-100 hover:border-orange-300 transition-colors cursor-pointer">
+                  {student.name}
+                  <span className="tabular-nums text-orange-700/80">
+                    {covered}/{required} min
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
