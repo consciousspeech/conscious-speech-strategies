@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatLocalDate } from "@/lib/utils";
+import { getSessionMinutes } from "@/lib/service-minutes";
 import type { Goal } from "@/lib/supabase/types";
 
 interface SessionGoalData {
@@ -52,52 +53,6 @@ function startOfWeekMondayISO(dateStr: string): string {
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   return d.toISOString().slice(0, 10);
-}
-
-// Sessions logged before we started capturing per-session time (any date
-// before August 2026) are assumed to be the standard 30-minute session.
-const LEGACY_SESSION_CUTOFF = "2026-08-01";
-const LEGACY_DEFAULT_MINUTES = 30;
-
-// Parse a service_time field like "9:00-9:30", "9:00 AM – 9:45 AM",
-// "30 min", or "45m" into minutes. Sessions dated before the legacy
-// cutoff fall back to LEGACY_DEFAULT_MINUTES when the field is blank
-// or unparseable. Returns 0 for newer sessions that lack a time.
-function parseServiceMinutes(raw: string, sessionDate?: string): number {
-  const s = raw.trim().toLowerCase().replace(/[–—]/g, "-");
-  const legacyFallback = sessionDate && sessionDate < LEGACY_SESSION_CUTOFF ? LEGACY_DEFAULT_MINUTES : 0;
-  if (!s) return legacyFallback;
-
-  // Time range: e.g. "9:00-9:30", "9:00 am - 9:45 am", "9-9:30 am"
-  const timeToken = /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/;
-  const rangeRe = new RegExp(`${timeToken.source}\\s*-\\s*${timeToken.source}`, "i");
-  const rm = s.match(rangeRe);
-  if (rm) {
-    // Groups: 1=h1, 2=m1, 3=ap1, 4=h2, 5=m2, 6=ap2
-    const parse = (h: string, m: string | undefined, ap: string | undefined, otherAp: string | undefined) => {
-      let hr = parseInt(h);
-      const min = m ? parseInt(m) : 0;
-      const ampm = (ap || otherAp || "").replace(/\./g, "").toLowerCase();
-      if (ampm.startsWith("p") && hr < 12) hr += 12;
-      if (ampm.startsWith("a") && hr === 12) hr = 0;
-      return hr * 60 + min;
-    };
-    const start = parse(rm[1], rm[2], rm[3], rm[6]);
-    let end = parse(rm[4], rm[5], rm[6], rm[3]);
-    if (end < start) end += 12 * 60; // crossed noon without explicit am/pm
-    const diff = end - start;
-    if (diff > 0 && diff <= 8 * 60) return diff;
-  }
-
-  // Bare duration: "30 min", "45m", "60"
-  const durRe = /^(\d{1,3})\s*(m(in(ute)?s?)?)?$/;
-  const dm = s.match(durRe);
-  if (dm) {
-    const n = parseInt(dm[1]);
-    if (n > 0 && n <= 8 * 60) return n;
-  }
-
-  return legacyFallback;
 }
 
 // Edit-mode goal entry. `id` is present if it maps to an existing
@@ -150,10 +105,13 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
   }, [sessions, iepYear]);
 
   // Group sessions by calendar month, then by school week (Monday start),
-  // with running totals at each level. `service_time` is free-form so we
-  // parse a time range first, then a bare duration; unparseable strings
-  // contribute 0 minutes. No-shows never contribute minutes but still count
-  // as sessions.
+  // with running totals at each level.
+  //
+  // Every session contributes the time entered on it — usually 30 minutes,
+  // sometimes less — including ones the student was absent for or that a
+  // school closure cancelled. Those slots were held and are counted, which
+  // is why these totals match the Schedule tab's weekly minutes. A session
+  // lost to a school activity is excluded, the same rule the Schedule uses.
   const monthGroups = useMemo(() => {
     type WeekGroup = { weekStart: string; sessions: SessionData[]; minutes: number; sessionCount: number };
     type MonthGroup = { monthKey: string; weeks: WeekGroup[]; minutes: number; sessionCount: number };
@@ -175,8 +133,12 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
       currentWeek.sessions.push(s);
       currentWeek.sessionCount += 1;
       currentMonth.sessionCount += 1;
-      if (s.occurred !== false) {
-        const mins = parseServiceMinutes(s.service_time || "", s.date);
+      const countsTowardMinutes =
+        s.occurred !== false ||
+        s.no_show_type === "student_absent" ||
+        s.no_show_type === "school_closure";
+      if (countsTowardMinutes) {
+        const mins = getSessionMinutes(s.service_time);
         currentWeek.minutes += mins;
         currentMonth.minutes += mins;
       }

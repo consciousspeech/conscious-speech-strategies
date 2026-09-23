@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getWeeklyRequirement, getSessionMinutes, EXCUSED_SESSION_MINUTES } from "@/lib/service-minutes";
+import { getWeeklyRequirement, getSessionMinutes } from "@/lib/service-minutes";
 
 // Every string below is a real `service_minutes` value from the production
 // students table, so this suite doubles as a record of what the field
@@ -200,26 +200,25 @@ describe("getSessionMinutes", () => {
   });
 });
 
-describe("EXCUSED_SESSION_MINUTES", () => {
-  it("credits a missed-but-excused session as one standard session", () => {
-    expect(EXCUSED_SESSION_MINUTES).toBe(30);
-  });
-
-  it("is what a 30 MPW student needs from a single absence", () => {
-    // A student absent for their only session of the week is still covered.
-    expect(EXCUSED_SESSION_MINUTES).toBeGreaterThanOrEqual(
-      getWeeklyRequirement({ studentText: "30 MPW" }).minutes!
-    );
-  });
-
-  it("is independent of how the missed slot was typed in", () => {
-    // Real service_time values on absence rows. Reading these would credit
-    // 15 minutes for the first and mis-parse the second; the flat rule avoids
-    // letting a typo move a student in or out of the shortfall list.
-    for (const messy of ["8:30-8:45", "12:15012:45", "2:15-2:45- withdrawled", ""]) {
-      expect(EXCUSED_SESSION_MINUTES, `absence credit should ignore "${messy}"`).toBe(30);
-    }
-    // Sessions that actually happened still read their real length.
+describe("getSessionMinutes — the rule absences follow too", () => {
+  it("reads the time actually entered, even when under 30", () => {
+    // A real absence row: the slot held was only 15 minutes.
     expect(getSessionMinutes("8:30-8:45")).toBe(15);
+  });
+
+  it("falls back to a standard session when the time is blank", () => {
+    // Blank absence rows exist; counting them as 0 is what made an absence
+    // look like it wasn't counting at all.
+    expect(getSessionMinutes("")).toBe(30);
+    expect(getSessionMinutes(null)).toBe(30);
+  });
+
+  it("falls back rather than mis-reading a mistyped slot", () => {
+    // Real values from absence rows — a typo must not silently change totals.
+    expect(getSessionMinutes("12:15012:45")).toBe(30);
+  });
+
+  it("still reads a usable time out of a slot with trailing notes", () => {
+    expect(getSessionMinutes("2:15-2:45- withdrawled")).toBe(30);
   });
 });
