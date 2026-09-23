@@ -115,6 +115,14 @@ export default function NewSessionPage() {
       return;
     }
 
+    // Required for sessions that happened — `required` on the textarea catches
+    // an empty field, this also catches whitespace-only. Sessions that didn't
+    // occur have nothing to record, so they're exempt.
+    if (occurred && !notes.trim()) {
+      alert("Please record the materials used and how the session went.");
+      return;
+    }
+
     setSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -132,7 +140,7 @@ export default function NewSessionPage() {
         student_id: studentId,
         date,
         entered_by: user?.id,
-        notes: notes || null,
+        notes: notes.trim() || null,
         occurred,
         no_show_type: occurred ? null : attendance,
         no_show_reason: occurred ? null : (noShowReason.trim() || null),
@@ -341,9 +349,11 @@ export default function NewSessionPage() {
           )}
           {occurred && (
             <div>
-              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Session Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-                placeholder="Optional notes about this session..." className={inputClass} />
+              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
+                Materials Used / Session Notes <span className="text-red-500">*</span>
+              </label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} required
+                placeholder="Materials used and how the session went..." className={inputClass} />
             </div>
           )}
         </div>

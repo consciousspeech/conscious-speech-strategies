@@ -471,11 +471,13 @@ export default function SessionHistory({ sessions: initialSessions, currentGoals
                         className={inputClass} />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-[12px] font-medium text-slate-500 mb-1">Notes</label>
+                      <label className="block text-[12px] font-medium text-slate-500 mb-1">
+                        Materials Used / Session Notes
+                      </label>
                       <input value={editForm.notes}
                         onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                         className={`w-full ${inputClass}`}
-                        placeholder="Session notes..." />
+                        placeholder="Materials used and how the session went..." />
                     </div>
                     <button onClick={() => saveEdit(session.id)}
                       className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[12px] font-medium transition-colors cursor-pointer">
