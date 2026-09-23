@@ -41,6 +41,12 @@ const WEEKLY_PATTERNS: RegExp[] = [
 /** Matches monthly forms so we can distinguish "monthly" from "unreadable". */
 const MONTHLY_PATTERN = /(\d{1,3})\s*(?:mpm|m\.p\.m\.?|mins?\s*\/\s*mo|minutes?\s*\/\s*mo|\/\s*mo\b|per\s+month|monthly)/i;
 
+/**
+ * Consult is not "no service" — in practice it's roughly 5 minutes a month of
+ * teacher contact. That's a MONTHLY commitment with no weekly obligation, so
+ * it stays off the weekly report; it belongs with the other monthly tracking
+ * if and when that gets built.
+ */
 const CONSULT_PATTERN = /consult/i;
 
 /**
