@@ -129,6 +129,22 @@ export function getWeeklyRequirement(input: WeeklyRequirementInput): WeeklyRequi
 const DEFAULT_SESSION_MINUTES = 30;
 
 /**
+ * What a missed session is worth when it wasn't ours to miss — a student
+ * absence or a school closure.
+ *
+ * Deliberately a flat standard session rather than whatever `service_time`
+ * happens to say. The time on a session that never happened describes the slot
+ * it was booked into, and those get typed inconsistently (real examples:
+ * "8:30-8:45", "12:15012:45", "2:15-2:45- withdrawled"). Reading them would let
+ * a typo quietly open or close a shortfall. A missed session is one standard
+ * session's worth of service, full stop.
+ *
+ * Sessions that DID happen still count their real logged length, so a genuine
+ * 60-minute session is credited as 60.
+ */
+export const EXCUSED_SESSION_MINUTES = 30;
+
+/**
  * Length of a single session in minutes, read from the free-text `service_time`.
  *
  * Handles "9:00-9:30", "9:00 AM – 9:45 AM", "9-9:30 am", plus bare durations

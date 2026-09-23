@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getWeeklyRequirement, getSessionMinutes } from "@/lib/service-minutes";
+import { getWeeklyRequirement, getSessionMinutes, EXCUSED_SESSION_MINUTES } from "@/lib/service-minutes";
 
 // Every string below is a real `service_minutes` value from the production
 // students table, so this suite doubles as a record of what the field
@@ -197,5 +197,29 @@ describe("getSessionMinutes", () => {
     expect(getSessionMinutes(null)).toBe(30);
     expect(getSessionMinutes("")).toBe(30);
     expect(getSessionMinutes("morning")).toBe(30);
+  });
+});
+
+describe("EXCUSED_SESSION_MINUTES", () => {
+  it("credits a missed-but-excused session as one standard session", () => {
+    expect(EXCUSED_SESSION_MINUTES).toBe(30);
+  });
+
+  it("is what a 30 MPW student needs from a single absence", () => {
+    // A student absent for their only session of the week is still covered.
+    expect(EXCUSED_SESSION_MINUTES).toBeGreaterThanOrEqual(
+      getWeeklyRequirement({ studentText: "30 MPW" }).minutes!
+    );
+  });
+
+  it("is independent of how the missed slot was typed in", () => {
+    // Real service_time values on absence rows. Reading these would credit
+    // 15 minutes for the first and mis-parse the second; the flat rule avoids
+    // letting a typo move a student in or out of the shortfall list.
+    for (const messy of ["8:30-8:45", "12:15012:45", "2:15-2:45- withdrawled", ""]) {
+      expect(EXCUSED_SESSION_MINUTES, `absence credit should ignore "${messy}"`).toBe(30);
+    }
+    // Sessions that actually happened still read their real length.
+    expect(getSessionMinutes("8:30-8:45")).toBe(15);
   });
 });

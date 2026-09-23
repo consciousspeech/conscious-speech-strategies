@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatLocalDate } from "@/lib/utils";
-import { getWeeklyRequirement, getSessionMinutes } from "@/lib/service-minutes";
+import { getWeeklyRequirement, getSessionMinutes, EXCUSED_SESSION_MINUTES } from "@/lib/service-minutes";
 
 interface ScheduleSession {
   id: string;
@@ -294,9 +294,14 @@ export default function SchedulePage() {
           const id = s.student?.id;
           if (!id) continue;
           const bucket = minutesByStudent.get(id) || { delivered: 0, excused: 0 };
-          const mins = getSessionMinutes(s.service_time);
-          if (s.occurred !== false) bucket.delivered += mins;
-          else if (s.no_show_type === "student_absent" || s.no_show_type === "school_closure") bucket.excused += mins;
+          if (s.occurred !== false) {
+            // A session that happened counts its real logged length.
+            bucket.delivered += getSessionMinutes(s.service_time);
+          } else if (s.no_show_type === "student_absent" || s.no_show_type === "school_closure") {
+            // One missed-but-excused session is worth one standard session,
+            // regardless of how its time slot was typed in.
+            bucket.excused += EXCUSED_SESSION_MINUTES;
+          }
           minutesByStudent.set(id, bucket);
         }
 
