@@ -182,7 +182,7 @@ export default function NinjaTrainingCamp() {
                 scheduled around your family, with a mask and materials provided.
               </p>
               <p className="mt-2 font-body text-sm text-charcoal-light">
-                Scholarships available &mdash; no one turned away due to cost.
+                Sliding scale available.
               </p>
               <p className="mt-2 font-body text-sm text-charcoal-light">
                 Private residence in St. Petersburg, FL &bull; Address shared once a session is booked
@@ -296,8 +296,8 @@ export default function NinjaTrainingCamp() {
                 a: "Sessions are one-on-one and arranged directly with Rachel, so timing fits around your family rather than a fixed class schedule. Get in touch to talk through what would suit your child.",
               },
               {
-                q: "Are scholarships available?",
-                a: "Yes — no one will be turned away due to cost. Reach out to Rachel directly to discuss scholarship options.",
+                q: "Is a sliding scale available?",
+                a: "Yes. Reach out to Rachel directly and she'll work out a rate with you.",
               },
               {
                 q: "Where is the program held?",
