@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useReveal } from "@/hooks/useReveal";
 
 // Rates for one-on-one sessions. Set these two and the details strip updates.
-// Until a price is confirmed the strip invites an enquiry rather than showing
-// a number, so nothing incorrect is published.
-const SESSION_PRICE = "Ask about rates";
-const SESSION_LENGTH = "Per session";
+const SESSION_PRICE = "$30";
+const SESSION_LENGTH = "Per 30-minute session";
 
 const highlights = [
   "Read words and pictures blindfolded",
