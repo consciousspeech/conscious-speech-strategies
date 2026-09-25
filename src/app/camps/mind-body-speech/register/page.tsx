@@ -12,6 +12,11 @@ const weekOptions = [
   { id: 2, label: "Week 2", dates: "June 22–25" },
 ];
 
+// Registration for this camp is closed. Everything below is left intact so
+// reopening next season is just flipping this back to true; the camp page and
+// the update-info page stay reachable for families who already registered.
+const REGISTRATION_OPEN = false;
+
 // Early bird cutoff: May 10, 2026 at midnight ET
 const EARLY_BIRD_CUTOFF = new Date("2026-05-10T04:00:00Z");
 const EARLY_BIRD_PRICE = 275;
@@ -159,6 +164,8 @@ export default function MindBodySpeechRegister() {
     "cursor-pointer rounded-full border border-sage/20 px-4 py-2 font-body text-sm text-charcoal transition-all duration-200 hover:border-sage";
   const radioActiveClass =
     "cursor-pointer rounded-full border-2 border-sage bg-sage/10 px-4 py-2 font-body text-sm font-medium text-sage-dark";
+
+  if (!REGISTRATION_OPEN) return <RegistrationClosed />;
 
   return (
     <div className="min-h-screen bg-warm-white">
@@ -872,6 +879,67 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
       <span className="font-body text-sm text-charcoal">
         {value || <span className="text-charcoal-light/40">Not provided</span>}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Shown in place of the registration flow while REGISTRATION_OPEN is false.
+ * Families who already registered still reach their camp details and the
+ * update-info form from here.
+ */
+function RegistrationClosed() {
+  return (
+    <div className="min-h-screen bg-warm-white">
+      {/* Nav */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-warm-white/90 backdrop-blur-md shadow-[0_1px_0_rgba(170,195,192,0.3)]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 lg:px-8">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="relative h-10 w-10 overflow-hidden rounded-full transition-transform duration-300 group-hover:scale-105">
+              <Image src="/Logo.png" alt="Conscious Speech Strategies" fill className="object-cover" sizes="40px" />
+            </div>
+            <span className="font-serif text-lg font-medium tracking-wide text-charcoal">
+              Conscious Speech
+            </span>
+          </Link>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-xl px-6 pt-32 pb-24 text-center lg:px-8">
+        <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.3em] text-sage-dark">
+          Mind. Body. Speech.
+        </p>
+        <h1 className="mb-5 font-serif text-3xl font-light text-charcoal md:text-4xl">
+          Registration is <span className="italic">closed</span>
+        </h1>
+        <p className="mb-8 font-body text-base leading-relaxed text-charcoal-light">
+          Thank you for your interest — we&apos;re not taking new registrations for this camp
+          right now. If you&apos;d like to hear when dates open again, please get in touch.
+        </p>
+
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/services#questionnaire"
+            className="rounded-full bg-sage px-7 py-3 font-body text-sm font-medium text-white transition-colors hover:bg-sage-dark"
+          >
+            Ask about therapy services
+          </Link>
+          <Link
+            href="/camps/mind-body-speech"
+            className="rounded-full border border-sage/40 px-7 py-3 font-body text-sm font-medium text-charcoal transition-colors hover:bg-sage/10"
+          >
+            View camp details
+          </Link>
+        </div>
+
+        <p className="mt-10 font-body text-sm text-charcoal-light">
+          Already registered?{" "}
+          <Link href="/camps/mind-body-speech/update-info" className="text-sage-dark underline underline-offset-4">
+            Update your information here
+          </Link>
+          .
+        </p>
+      </div>
     </div>
   );
 }

@@ -29,112 +29,11 @@ export default function Programs() {
         </div>
 
         {/* Program cards */}
-        <div className="grid gap-10 md:grid-cols-2 md:gap-8 lg:gap-12">
-          {/* Mind Body Speech Camp */}
-          <Link href="/camps/mind-body-speech" className="fade-up group relative block overflow-hidden rounded-2xl bg-cream transition-all duration-500 hover:shadow-xl hover:shadow-sage/10">
-            {/* Image header */}
-            <div className="relative h-56 overflow-hidden">
-              <Image
-                src="/images/camp-mind-body-speech.png"
-                alt="Children doing yoga and playing with drums and hula hoops during Mind Body Speech camp"
-                fill
-                className="object-cover object-[50%_25%] transition-transform duration-700 group-hover:scale-105"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-charcoal/10 to-transparent" />
-              <div className="absolute bottom-4 left-5 flex gap-2">
-                <span className="inline-block rounded-full bg-sage/90 px-4 py-1.5 font-body text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                  Summer Camp
-                </span>
-              </div>
-            </div>
-
-            <div className="p-7 md:p-8">
-              <h3 className="mb-2 font-serif text-3xl font-light text-charcoal">
-                Mind. Body. Speech.
-              </h3>
-              <p className="mb-5 font-body text-[15px] leading-[1.8] text-charcoal-light">
-                Two weeks of creative group speech and language therapy sessions
-                designed for rising 1st&ndash;5th graders looking to close the
-                summer gap on their IEP goals and improve speech, language, social,
-                literacy, and executive functioning skills.
-              </p>
-
-              {/* Details grid */}
-              <div className="mb-6 grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-warm-white p-3">
-                  <p className="font-body text-[10px] font-bold uppercase tracking-wider text-sage-dark">
-                    Schedule
-                  </p>
-                  <p className="mt-0.5 font-body text-sm text-charcoal">
-                    Mon&ndash;Thu, 9am&ndash;12pm
-                  </p>
-                </div>
-                <div className="rounded-lg bg-warm-white p-3">
-                  <p className="font-body text-[10px] font-bold uppercase tracking-wider text-sage-dark">
-                    Investment
-                  </p>
-                  <p className="mt-0.5 font-body text-sm text-charcoal">
-                    $300 per week
-                  </p>
-                </div>
-                <div className="rounded-lg bg-warm-white p-3">
-                  <p className="font-body text-[10px] font-bold uppercase tracking-wider text-sage-dark">
-                    Ages
-                  </p>
-                  <p className="mt-0.5 font-body text-sm text-charcoal">
-                    Rising 1st&ndash;5th Grade
-                  </p>
-                </div>
-                <div className="rounded-lg bg-warm-white p-3">
-                  <p className="font-body text-[10px] font-bold uppercase tracking-wider text-sage-dark">
-                    Duration
-                  </p>
-                  <p className="mt-0.5 font-body text-sm text-charcoal">
-                    2 Week Series
-                  </p>
-                </div>
-              </div>
-
-              {/* Activities */}
-              <div className="mb-6 flex flex-wrap gap-2">
-                {[
-                  "Improv Games",
-                  "Mindfulness",
-                  "Music",
-                  "Literacy",
-                  "Movement",
-                ].map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-sage/10 px-3 py-1 font-body text-xs font-medium text-sage-dark"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              <span className="inline-flex items-center gap-2 font-body text-sm font-semibold text-sage-dark transition-colors duration-300 group-hover:text-sage">
-                Learn More
-                <svg
-                  className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
-              </span>
-            </div>
-          </Link>
-
+        {/* One programme runs at present, so the card is centred rather than
+            sitting in a half-empty two-column grid. */}
+        <div className="mx-auto grid max-w-xl gap-10 md:gap-8 lg:gap-12">
           {/* Intuitive Ninja Training */}
-          <Link href="/camps/ninja-training" className="fade-up delay-2 group relative block overflow-hidden rounded-2xl bg-cream transition-all duration-500 hover:shadow-xl hover:shadow-sage/10">
+          <Link href="/camps/ninja-training" className="fade-up group relative block overflow-hidden rounded-2xl bg-cream transition-all duration-500 hover:shadow-xl hover:shadow-sage/10">
             {/* Image header */}
             <div className="relative h-56 overflow-hidden">
               <Image

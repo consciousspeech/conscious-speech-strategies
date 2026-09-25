@@ -483,18 +483,18 @@ export default function MindBodySpeechCamp() {
         <div className="relative mx-auto max-w-6xl px-6 lg:px-8">
           <div className="fade-up mx-auto max-w-2xl text-center">
             <h2 className="mb-4 font-serif text-3xl font-light text-charcoal md:text-4xl">
-              Ready to <span className="italic">Enroll?</span>
+              Registration is <span className="italic">Closed</span>
             </h2>
             <p className="mb-8 font-body text-base leading-relaxed text-charcoal-light">
-              Spaces are limited to ensure each child receives personalized
-              attention. Register now to reserve your spot.
+              We&apos;re not taking new registrations for this camp right now. Get in
+              touch if you&apos;d like to hear when dates open again.
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/camps/mind-body-speech/register"
+                href="/services#questionnaire"
                 className="inline-flex items-center gap-2 rounded-full bg-sage px-8 py-3.5 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-sage-dark hover:shadow-lg hover:shadow-sage/20"
               >
-                Register Now
+                Ask About Therapy Services
                 <svg
                   className="h-4 w-4"
                   fill="none"
