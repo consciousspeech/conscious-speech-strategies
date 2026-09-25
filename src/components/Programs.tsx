@@ -64,7 +64,7 @@ export default function Programs() {
               </p>
 
               {/* Details grid */}
-              <div className="mb-6 grid grid-cols-2 gap-3">
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-lg bg-warm-white p-3">
                   <p className="font-body text-[10px] font-bold uppercase tracking-wider text-olive">
                     Schedule
@@ -89,14 +89,6 @@ export default function Programs() {
                     5&ndash;12 years old
                   </p>
                 </div>
-                <div className="rounded-lg bg-warm-white p-3">
-                  <p className="font-body text-[10px] font-bold uppercase tracking-wider text-olive">
-                    Dates
-                  </p>
-                  <p className="mt-0.5 font-body text-sm text-charcoal">
-                    June 16&ndash;July 14
-                  </p>
-                </div>
               </div>
 
               {/* Activities */}
@@ -104,7 +96,6 @@ export default function Programs() {
                 {[
                   "Blindfold Training",
                   "Energy Play",
-                  "Herbal Potions",
                   "Sensory Exploration",
                   "Mindfulness",
                   "Chakra Journey",
