@@ -13,6 +13,11 @@ const steps = ["Plan", "Child Info", "Background", "Contact", "Waiver", "Review"
 // invited families who shouldn't pay. Rotate the value if it leaks.
 const COMP_TOKEN = "NINJA-COMP-2026";
 
+// Group registration is retired — Intuitive Ninja now runs as one-on-one
+// sessions arranged directly, so this flow (and its Stripe checkout) is off.
+// The whole form is left intact in case group cohorts return.
+const GROUP_REGISTRATION_OPEN = false;
+
 // All 5 class dates for the summer 2026 Ninja Training cohort.
 const CLASS_DATES: { iso: string; label: string }[] = [
   { iso: "2026-06-16", label: "Tue, Jun 16" },
@@ -187,6 +192,8 @@ function NinjaTrainingRegister() {
     "cursor-pointer rounded-full border border-olive/20 px-4 py-2 font-body text-sm text-charcoal transition-all duration-200 hover:border-olive";
   const radioActiveClass =
     "cursor-pointer rounded-full border-2 border-olive bg-olive/10 px-4 py-2 font-body text-sm font-medium text-olive";
+
+  if (!GROUP_REGISTRATION_OPEN) return <IndividualSessionsNotice />;
 
   return (
     <div className="min-h-screen bg-warm-white">
@@ -902,6 +909,59 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
       <span className="font-body text-sm text-charcoal">
         {value || <span className="text-charcoal-light/40">Not provided</span>}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Shown instead of the group signup flow while GROUP_REGISTRATION_OPEN is
+ * false. Intuitive Ninja now runs as individual sessions arranged directly.
+ */
+function IndividualSessionsNotice() {
+  return (
+    <div className="min-h-screen bg-warm-white">
+      {/* Nav */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-warm-white/90 backdrop-blur-md shadow-[0_1px_0_rgba(170,195,192,0.3)]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 lg:px-8">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="relative h-10 w-10 overflow-hidden rounded-full transition-transform duration-300 group-hover:scale-105">
+              <Image src="/Logo.png" alt="Conscious Speech Strategies" fill className="object-cover" sizes="40px" />
+            </div>
+            <span className="font-serif text-lg font-medium tracking-wide text-charcoal">
+              Conscious Speech
+            </span>
+          </Link>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-xl px-6 pt-32 pb-24 text-center lg:px-8">
+        <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.3em] text-olive">
+          Intuitive Ninja Training
+        </p>
+        <h1 className="mb-5 font-serif text-3xl font-light text-charcoal md:text-4xl">
+          Now offered <span className="italic">one-on-one</span>
+        </h1>
+        <p className="mb-8 font-body text-base leading-relaxed text-charcoal-light">
+          The group program has finished its run. Ninja training continues as
+          individual sessions, arranged directly so the pace and focus suit your
+          child. Get in touch and we&apos;ll find a time that works.
+        </p>
+
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/services#questionnaire"
+            className="rounded-full bg-olive px-7 py-3 font-body text-sm font-medium text-white transition-colors hover:bg-olive/80"
+          >
+            Enquire about sessions
+          </Link>
+          <Link
+            href="/camps/ninja-training"
+            className="rounded-full border border-olive/40 px-7 py-3 font-body text-sm font-medium text-charcoal transition-colors hover:bg-olive/10"
+          >
+            What sessions involve
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

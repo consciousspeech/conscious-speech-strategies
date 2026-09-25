@@ -4,91 +4,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useReveal } from "@/hooks/useReveal";
 
-const weeks = [
-  {
-    number: 1,
-    chakra: "Root Chakra",
-    mantra: "I Am Safe",
-    theme: "Grounding, stability, feeling secure in your body and space",
-    color: "red",
-    colorClass: "bg-red-500/15 text-red-700",
-    dotClass: "bg-red-500",
-    activities: [
-      "Blindfold Obstacle Course: Move safely using sound, vibration, or intuition",
-      '"Root to the Earth" Game: Balance standing still while visualizing growing roots from feet',
-    ],
-    herbal:
-      "Sip calming herbal tea (like rooibos or tulsi); touch and smell grounding herbs like patchouli or cedar",
-  },
-  {
-    number: 2,
-    chakra: "Sacral Chakra",
-    mantra: "I Feel",
-    theme: "Emotions, creativity, playfulness",
-    color: "orange",
-    colorClass: "bg-orange-500/15 text-orange-700",
-    dotClass: "bg-orange-500",
-    activities: [
-      "Emotional Scent Matching: Blindfolded, smell herbs and describe the emotion it evokes",
-      'Intuitive Drawing: Blindfolded drawing of "what your heart feels today"',
-    ],
-    herbal:
-      "Create orange peel sachets or blends with calendula, clove, and cinnamon",
-  },
-  {
-    number: 3,
-    chakra: "Solar Plexus Chakra",
-    mantra: "I Can",
-    theme: "Confidence, willpower, inner strength, leadership",
-    color: "yellow",
-    colorClass: "bg-yellow-500/15 text-yellow-700",
-    dotClass: "bg-yellow-500",
-    activities: [
-      '"Yes I Can!" Relay: Confidence-building tasks while blindfolded',
-      "Ninja Energy Catch: Kids try to catch gentle energy pulses or floating scarves",
-    ],
-    herbal:
-      'Sip ginger or lemon balm tea; create sun-charged "power pouches"',
-  },
-  {
-    number: 4,
-    chakra: "Heart & Throat Chakra",
-    mantra: "I Love & I Express",
-    theme: "Compassion, empathy, connection, communication, expression",
-    color: "green",
-    colorClass: "bg-emerald-500/15 text-emerald-700",
-    dotClass: "bg-emerald-500",
-    activities: [
-      "Tone Tag: Use sound (humming, singing, chimes) to tag or guide friends",
-      "Blindfold Word Reading: Read color words, phrases, or images using inner vision",
-      "Blindfolded Trust Walk: Paired partners guide each other with hand pulses or sound",
-      '"Feel the Heart" Game: Guess emotions silently shared through energy or touch',
-    ],
-    herbal:
-      "Blend throat-friendly teas (licorice root, thyme, fennel); work with rose, hibiscus, or peppermint for heart-opening tea and rose petal art",
-  },
-  {
-    number: 5,
-    chakra: "Third Eye & Crown",
-    mantra: "I See & I Am",
-    theme: "Intuition, insight, connection to all",
-    color: "purple",
-    colorClass: "bg-purple-500/15 text-purple-700",
-    dotClass: "bg-purple-500",
-    activities: [
-      "Blindfold Book/Picture Reading: Practice intuitive reading or picture sensing",
-      'Guided Visualization: Meet your "intuitive ninja guide" during a meditation',
-    ],
-    herbal:
-      "Mugwort dream satchels, lavender, and pine for intuitive clarity",
-  },
-];
+// Rates for one-on-one sessions. Set these two and the details strip updates.
+// Until a price is confirmed the strip invites an enquiry rather than showing
+// a number, so nothing incorrect is published.
+const SESSION_PRICE = "Ask about rates";
+const SESSION_LENGTH = "Per session";
 
 const highlights = [
   "Read words and pictures blindfolded",
   "Sense energy fields and play with ninja props",
-  "Brew calming herbal potions",
-  "Develop ninja senses through herbal, energy, and sensory play",
+  "Build focus and self-regulation through movement",
+  "Develop ninja senses through energy and sensory play",
 ];
 
 export default function NinjaTrainingCamp() {
@@ -174,10 +100,9 @@ export default function NinjaTrainingCamp() {
               trust in their own senses.
             </p>
             <p className="font-body text-base leading-relaxed text-charcoal-light">
-              Through this unique blend of intuition training, sensory
-              exploration, and herbal play, children experience meaningful
-              growth in confidence, discipline, and self-regulation &mdash; all
-              while having a blast.
+              Through this unique blend of intuition training and sensory
+              exploration, children experience meaningful growth in confidence,
+              discipline, and self-regulation &mdash; all while having a blast.
             </p>
             <p className="mt-4 font-serif text-lg italic text-olive">
               Part Ninja academy, part inner journey, all heart.
@@ -218,24 +143,24 @@ export default function NinjaTrainingCamp() {
             </div>
             <div className="rounded-2xl bg-cream p-5 text-center">
               <p className="font-body text-[10px] font-bold uppercase tracking-wider text-olive">
-                When
+                Format
               </p>
               <p className="mt-1 font-body text-sm font-medium text-charcoal">
-                Tuesdays
+                One-on-One
               </p>
               <p className="font-body text-xs text-charcoal-light">
-                4:30&ndash;5:30pm
+                Individual sessions
               </p>
             </div>
             <div className="rounded-2xl bg-cream p-5 text-center">
               <p className="font-body text-[10px] font-bold uppercase tracking-wider text-olive">
-                Dates
+                When
               </p>
               <p className="mt-1 font-body text-sm font-medium text-charcoal">
-                5 Sessions
+                Flexible
               </p>
               <p className="font-body text-xs text-charcoal-light">
-                June 16&ndash;July 14
+                Scheduled by arrangement
               </p>
             </div>
             <div className="rounded-2xl bg-cream p-5 text-center">
@@ -243,10 +168,10 @@ export default function NinjaTrainingCamp() {
                 Investment
               </p>
               <p className="mt-1 font-body text-sm font-medium text-charcoal">
-                $120
+                {SESSION_PRICE}
               </p>
               <p className="font-body text-xs text-charcoal-light">
-                all 5 sessions
+                {SESSION_LENGTH}
               </p>
             </div>
           </div>
@@ -255,16 +180,14 @@ export default function NinjaTrainingCamp() {
           <div className="fade-up delay-3 mx-auto mt-8 max-w-2xl text-center">
             <div className="rounded-2xl bg-olive/8 px-6 py-5">
               <p className="font-body text-sm text-charcoal">
-                <span className="font-semibold">Drop-in:</span> $30 per class
-                &nbsp;&bull;&nbsp;
-                <span className="font-semibold">Registration fee:</span> $30
-                (covers mask &amp; materials)
+                <span className="font-semibold">One-on-one sessions</span>{" "}
+                scheduled around your family, with a mask and materials provided.
               </p>
               <p className="mt-2 font-body text-sm text-charcoal-light">
                 Scholarships available &mdash; no one turned away due to cost.
               </p>
               <p className="mt-2 font-body text-sm text-charcoal-light">
-                Private residence in St. Petersburg, FL &bull; Address shared upon registration
+                Private residence in St. Petersburg, FL &bull; Address shared once a session is booked
               </p>
             </div>
           </div>
@@ -294,10 +217,10 @@ export default function NinjaTrainingCamp() {
         <div className="relative mx-auto max-w-5xl px-6 lg:px-8">
           <div className="fade-up mx-auto mb-16 max-w-2xl text-center">
             <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.3em] text-olive">
-              Meet Your Senseis
+              Meet Your Sensei
             </p>
             <h2 className="font-serif text-3xl font-light text-charcoal md:text-4xl">
-              The team behind <span className="italic">Intuitive Ninja</span>
+              The guide behind <span className="italic">Intuitive Ninja</span>
             </h2>
           </div>
 
@@ -337,131 +260,6 @@ export default function NinjaTrainingCamp() {
             </div>
           </div>
 
-          {/* Christina — text left, photo right */}
-          <div className="fade-up delay-2 grid items-center gap-8 md:grid-cols-5 md:gap-12">
-            <div className="md:order-2 md:col-span-2">
-              <div className="relative mx-auto aspect-square max-w-sm overflow-hidden rounded-2xl shadow-md md:max-w-none">
-                <Image
-                  src="/images/christina-prestero.jpg"
-                  alt="Christina Prestero"
-                  fill
-                  className="object-cover object-top"
-                  sizes="(max-width: 768px) 100vw, 40vw"
-                />
-              </div>
-            </div>
-            <div className="md:order-1 md:col-span-3">
-              <h3 className="mb-1 font-serif text-2xl font-light text-charcoal">
-                Christina Prestero
-              </h3>
-              <p className="mb-4 font-body text-[11px] font-bold uppercase tracking-wider text-olive">
-                Founder, Quantum Herbalism
-              </p>
-              <p className="font-body text-[15px] leading-relaxed text-charcoal-light">
-                Christina is a nature-based educator, mother, and founder of
-                Quantum Herbalism. She weaves together herbal sensory
-                experiences, intuitive development, movement, creativity, and
-                grounded mindfulness to create playful, heart-centered
-                experiences for children and families. Her work encourages
-                curiosity, confidence, embodiment, and connection with both
-                nature and self through imaginative and engaging practices.{" "}
-                <a
-                  href="https://quantumherbalism.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-olive underline decoration-olive/40 underline-offset-2 transition-colors hover:text-olive hover:decoration-olive"
-                >
-                  quantumherbalism.com
-                </a>
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Weekly Curriculum */}
-      <section className="relative overflow-hidden py-16 md:py-24">
-        <div className="pointer-events-none absolute -top-32 -left-32 h-72 w-72 rounded-full bg-peach/8 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -right-32 h-72 w-72 rounded-full bg-olive/8 blur-3xl" />
-
-        <div className="relative mx-auto max-w-6xl px-6 lg:px-8">
-          <div className="fade-up mx-auto mb-16 max-w-2xl text-center">
-            <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.3em] text-olive">
-              The Curriculum
-            </p>
-            <h2 className="mb-4 font-serif text-3xl font-light text-charcoal md:text-4xl">
-              A Chakra-Guided <span className="italic">Journey</span>
-            </h2>
-            <p className="font-body text-base leading-relaxed text-charcoal-light">
-              Each week focuses on a different energy center, building from
-              grounding and safety all the way up to intuition and inner vision.
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            {weeks.map((week, i) => (
-              <div
-                key={week.number}
-                className={`fade-up delay-${Math.min(i + 1, 6)} rounded-2xl bg-cream p-6 transition-all duration-300 hover:shadow-md hover:shadow-sage/10 md:p-8`}
-              >
-                <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
-                  {/* Week number & chakra */}
-                  <div className="flex-shrink-0 md:w-48">
-                    <div className="flex items-center gap-3 md:flex-col md:items-start md:gap-2">
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full ${week.colorClass}`}
-                      >
-                        <span className="font-body text-sm font-bold">
-                          {week.number}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-serif text-lg font-medium text-charcoal">
-                          {week.chakra}
-                        </p>
-                        <p className="font-body text-sm italic text-charcoal-light">
-                          &ldquo;{week.mantra}&rdquo;
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-2 font-body text-xs text-charcoal-light">
-                      {week.theme}
-                    </p>
-                  </div>
-
-                  {/* Activities & Herbal */}
-                  <div className="flex-1">
-                    <div className="mb-4">
-                      <p className="mb-2 font-body text-[10px] font-bold uppercase tracking-wider text-charcoal">
-                        Activities
-                      </p>
-                      <ul className="space-y-2">
-                        {week.activities.map((activity) => (
-                          <li
-                            key={activity}
-                            className="flex items-start gap-2.5 font-body text-sm leading-relaxed text-charcoal-light"
-                          >
-                            <div
-                              className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${week.dotClass}`}
-                            />
-                            {activity}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="rounded-xl bg-warm-white px-4 py-3">
-                      <p className="font-body text-[10px] font-bold uppercase tracking-wider text-olive">
-                        Herbal Tie-In
-                      </p>
-                      <p className="mt-1 font-body text-sm text-charcoal-light">
-                        {week.herbal}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -489,15 +287,15 @@ export default function NinjaTrainingCamp() {
               },
               {
                 q: "What will my child actually be doing?",
-                a: "Each session includes blindfold training, sensory exploration, energy play, herbal tea making, guided visualizations, and movement games — all guided by a chakra-based weekly theme.",
+                a: "Each session includes blindfold training, sensory exploration, energy play, guided visualizations, and movement games, shaped around what your individual child responds to.",
               },
               {
                 q: "Is the blindfold training safe?",
                 a: "Absolutely. All blindfold activities are carefully supervised and designed for fun and exploration, not competition. Children are always in a safe, controlled environment.",
               },
               {
-                q: "Can I drop in for a single session?",
-                a: "Yes! Drop-in sessions are $30 per class. The full 5-session package is $120. There is a one-time $30 registration fee for the mask and materials.",
+                q: "How are sessions scheduled?",
+                a: "Sessions are one-on-one and arranged directly with Rachel, so timing fits around your family rather than a fixed class schedule. Get in touch to talk through what would suit your child.",
               },
               {
                 q: "Are scholarships available?",
@@ -505,7 +303,7 @@ export default function NinjaTrainingCamp() {
               },
               {
                 q: "Where is the program held?",
-                a: "Sessions are held at a private residence in St. Petersburg, FL. The exact address is shared with registered families via email.",
+                a: "Sessions are held at a private residence in St. Petersburg, FL. The exact address is shared once a session is booked.",
               },
             ].map((faq, i) => (
               <details
@@ -545,15 +343,15 @@ export default function NinjaTrainingCamp() {
               Ready to <span className="italic">Train?</span>
             </h2>
             <p className="mb-3 font-body text-base leading-relaxed text-charcoal-light">
-              Spaces are limited. Register now to secure your spot and
-              receive the location details.
+              Sessions are one-on-one and arranged directly. Get in touch to
+              talk through what would suit your child.
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/camps/ninja-training/register"
+                href="/services#questionnaire"
                 className="inline-flex items-center gap-2 rounded-full bg-olive px-8 py-3.5 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-olive/80 hover:shadow-lg hover:shadow-olive/20"
               >
-                Register Now
+                Enquire About Sessions
                 <svg
                   className="h-4 w-4"
                   fill="none"

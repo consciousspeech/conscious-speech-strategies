@@ -70,15 +70,15 @@ export default function Programs() {
                     Schedule
                   </p>
                   <p className="mt-0.5 font-body text-sm text-charcoal">
-                    Tuesdays, 4:30&ndash;5:30pm
+                    By arrangement
                   </p>
                 </div>
                 <div className="rounded-lg bg-warm-white p-3">
                   <p className="font-body text-[10px] font-bold uppercase tracking-wider text-olive">
-                    Investment
+                    Format
                   </p>
                   <p className="mt-0.5 font-body text-sm text-charcoal">
-                    $120 / 5 sessions
+                    One-on-one sessions
                   </p>
                 </div>
                 <div className="rounded-lg bg-warm-white p-3">
