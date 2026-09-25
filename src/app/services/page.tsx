@@ -248,7 +248,7 @@ export default function ServicesPage() {
                 <button type="button" onClick={() => setSessionPref("in_person")} className={radioBtn(sessionPref === "in_person")}>In Person</button>
                 <button type="button" onClick={() => setSessionPref("virtual")} className={radioBtn(sessionPref === "virtual")}>Virtual</button>
               </div>
-              <p className="mt-1.5 font-body text-xs text-charcoal-light">Virtual services available for qualifying candidates. In-person at a private residence in St. Petersburg.</p>
+              <p className="mt-1.5 font-body text-xs text-charcoal-light">Virtual services available for qualifying candidates. In-person at a private residence in St. Petersburg or in your own home.</p>
             </div>
             <div>
               <label className={labelClass}>Does your child have an IEP?</label>
@@ -729,7 +729,7 @@ export default function ServicesPage() {
             <div className="rounded-2xl bg-warm-white p-7">
               <h3 className="mb-4 font-serif text-xl font-light text-charcoal">Therapy Sessions</h3>
               <p className="mb-4 font-body text-sm leading-relaxed text-charcoal-light">
-                All sessions are 30 minutes and may be scheduled up to twice a week if needed. Available in-person at a private residence in St. Petersburg, or virtually for qualifying candidates.
+                All sessions are 30 minutes and may be scheduled up to twice a week if needed. Available in-person at a private residence in St. Petersburg or in your own home, or virtually for qualifying candidates.
               </p>
               <div className="space-y-2">
                 <div className="flex justify-between items-center py-2 border-b border-sage/10">
@@ -750,7 +750,7 @@ export default function ServicesPage() {
 
           <div className="fade-up delay-2 grid gap-4 md:grid-cols-3">
             {[
-              { title: "In Person", desc: "Sessions at a private residence in St. Petersburg." },
+              { title: "In Person", desc: "Sessions at a private residence in St. Petersburg, or in the comfort of your own home." },
               { title: "Virtual Option", desc: "Telehealth sessions at $60, for students determined to be good candidates." },
               { title: "Flexible Schedule", desc: "30-minute sessions, up to twice weekly based on your child's needs." },
             ].map((s) => (
