@@ -949,7 +949,7 @@ function IndividualSessionsNotice() {
 
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
-            href="/services#questionnaire"
+            href="/#contact"
             className="rounded-full bg-olive px-7 py-3 font-body text-sm font-medium text-white transition-colors hover:bg-olive/80"
           >
             Enquire about sessions

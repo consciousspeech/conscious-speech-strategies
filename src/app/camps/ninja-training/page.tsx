@@ -346,7 +346,7 @@ export default function NinjaTrainingCamp() {
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/services#questionnaire"
+                href="/#contact"
                 className="inline-flex items-center gap-2 rounded-full bg-olive px-8 py-3.5 font-body text-sm font-semibold uppercase tracking-wider text-white transition-all duration-300 hover:bg-olive/80 hover:shadow-lg hover:shadow-olive/20"
               >
                 Enquire About Sessions
@@ -363,12 +363,6 @@ export default function NinjaTrainingCamp() {
                     d="M17 8l4 4m0 0l-4 4m4-4H3"
                   />
                 </svg>
-              </Link>
-              <Link
-                href="/#contact"
-                className="inline-flex items-center rounded-full border border-charcoal/20 px-8 py-3.5 font-body text-sm font-semibold uppercase tracking-wider text-charcoal transition-all duration-300 hover:border-olive hover:text-olive"
-              >
-                Have Questions? Get in Touch
               </Link>
             </div>
           </div>
