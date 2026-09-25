@@ -65,7 +65,11 @@ export default function About() {
               <span className="font-medium text-charcoal">
                 fluency, articulation, and literacy
               </span>
-              . She integrates executive functioning skills, improv games, and
+              .{" "}
+              <span className="font-medium text-charcoal">
+                Talk Yoga certified
+              </span>
+              , she integrates executive functioning skills, improv games, and
               mindfulness techniques to foster cognitive, social, and emotional
               growth in every child she serves.
             </p>
