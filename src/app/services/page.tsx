@@ -685,11 +685,11 @@ export default function ServicesPage() {
             Private Services
           </p>
           <h1 className="fade-up delay-2 font-serif text-4xl font-light text-charcoal md:text-5xl lg:text-6xl">
-            Summer Therapy &<br />
+            Speech Therapy &<br />
             <span className="italic">Private</span> Services
           </h1>
           <p className="fade-up delay-3 mx-auto mt-6 max-w-xl font-body text-base leading-relaxed text-charcoal-light md:text-lg">
-            Individualized and group therapy options designed to support your child&apos;s communication growth over the summer and beyond.
+            Individualized and group therapy options designed to support your child&apos;s communication growth year round.
           </p>
         </div>
       </section>

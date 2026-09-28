@@ -131,7 +131,7 @@ export default function RegistrationSuccess() {
                 </p>
                 <p className="font-body text-sm text-charcoal-light">
                   We can&apos;t wait to meet your little one and help them
-                  shine this summer.
+                  shine.
                 </p>
               </div>
             </div>

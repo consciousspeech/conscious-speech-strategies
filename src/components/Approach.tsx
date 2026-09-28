@@ -65,7 +65,7 @@ export default function Approach() {
             <span className="italic">Communication</span>
           </h2>
           <p className="font-body text-base leading-relaxed text-charcoal-light md:text-lg">
-            Whether in schools or summer programs, Rachel weaves these
+            Whether in schools or private sessions, Rachel weaves these
             philosophies into every interaction &mdash; because learning thrives
             when infused with joy and engaged through multiple sensory pathways.
           </p>

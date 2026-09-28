@@ -17,14 +17,14 @@ export default function Programs() {
         {/* Header */}
         <div className="fade-up mx-auto mb-20 max-w-2xl text-center">
           <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.3em] text-sage-dark">
-            Summer Programs
+            Programs
           </p>
           <h2 className="mb-6 font-serif text-4xl font-light text-charcoal md:text-5xl">
             Beyond the <span className="italic">Session</span>
           </h2>
           <p className="font-body text-base leading-relaxed text-charcoal-light md:text-lg">
-            Immersive summer programs that bring our holistic philosophy to life
-            through extended group experiences.
+            Immersive programs that bring our holistic philosophy to life,
+            offered year round.
           </p>
         </div>
 
@@ -46,7 +46,7 @@ export default function Programs() {
               <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-charcoal/10 to-transparent" />
               <div className="absolute bottom-4 left-5">
                 <span className="inline-block rounded-full bg-olive/90 px-4 py-1.5 font-body text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                  Summer Program
+                  Year-Round Program
                 </span>
               </div>
             </div>

@@ -74,7 +74,7 @@ export default function NinjaTrainingCamp() {
           <div className="absolute bottom-8 left-0 right-0">
             <div className="mx-auto max-w-6xl px-6 lg:px-8">
               <span className="inline-block rounded-full bg-olive/90 px-4 py-1.5 font-body text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                Summer 2026
+                Year-Round Sessions
               </span>
             </div>
           </div>
