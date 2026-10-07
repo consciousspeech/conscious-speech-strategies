@@ -91,12 +91,56 @@ export default function ExportPage() {
       });
 
       // Build rows: header row with goal descriptions, then data rows
-      const headerRow = ["Date"];
+      const headerRow = ["Date", "Attendance"];
       goals.forEach((g) => {
         const yearLabel = g.iep_year ? ` [IEP ${g.iep_year}]` : "";
         headerRow.push(`Goal ${g.goal_number}${yearLabel}: ${g.description}`);
       });
       headerRow.push("Notes");
+
+      // Attendance label for one session. Mirrors the wording used in Session
+      // History so a report and the dashboard never disagree. The reason text
+      // (e.g. the name of the school activity) goes on a second line inside
+      // the same cell.
+      const NO_SHOW_LABELS: Record<string, string> = {
+        student_absent: "Student absent",
+        school_activity: "School activity",
+        school_closure: "School closure",
+      };
+      function attendanceCell(session: Record<string, unknown>): string {
+        const reason = ((session.no_show_reason as string | null) || "").trim();
+        if (session.occurred === false) {
+          const type = session.no_show_type as string | null;
+          const label = (type && NO_SHOW_LABELS[type]) || "Did not occur";
+          return reason ? `${label}\n${reason}` : label;
+        }
+        const label = session.is_makeup ? "Attended (make-up)" : "Attended";
+        return reason ? `${label}\n${reason}` : label;
+      }
+
+      // Count each attendance category over the period so the reader gets the
+      // totals without tallying rows by hand.
+      const tally = { attended: 0, makeup: 0, student_absent: 0, school_activity: 0, school_closure: 0, other: 0 };
+      for (const session of (sessions || []) as Record<string, unknown>[]) {
+        if (session.occurred === false) {
+          const type = session.no_show_type as string | null;
+          if (type === "student_absent") tally.student_absent += 1;
+          else if (type === "school_activity") tally.school_activity += 1;
+          else if (type === "school_closure") tally.school_closure += 1;
+          else tally.other += 1;
+        } else {
+          tally.attended += 1;
+          if (session.is_makeup) tally.makeup += 1;
+        }
+      }
+      const attendanceParts = [
+        `${tally.attended} attended${tally.makeup > 0 ? ` (${tally.makeup} make-up)` : ""}`,
+      ];
+      if (tally.student_absent > 0) attendanceParts.push(`${tally.student_absent} student absent`);
+      if (tally.school_activity > 0) attendanceParts.push(`${tally.school_activity} school activity`);
+      if (tally.school_closure > 0) attendanceParts.push(`${tally.school_closure} school closure`);
+      if (tally.other > 0) attendanceParts.push(`${tally.other} did not occur`);
+      const attendanceSummary = attendanceParts.join(", ");
 
       // Build session rows in date order, inserting an "IEP separator"
       // row at every IEP-year transition so the reader can see exactly
@@ -110,14 +154,15 @@ export default function ExportPage() {
             ? `── New IEP starts: ${iepYear} ──`
             : "── Current IEP ──";
           const sep: (string | number)[] = [label];
-          for (let i = 0; i < goals.length; i++) sep.push("");
-          sep.push("");
+          // One blank for Attendance, one per goal, one for Notes.
+          for (let i = 0; i < goals.length + 2; i++) sep.push("");
           dataRows.push(sep);
         }
         prevIepYear = iepYear;
 
         const row: (string | number)[] = [
           new Date((session.date as string) + "T00:00:00").toLocaleDateString(),
+          attendanceCell(session),
         ];
         goals.forEach((g) => {
           // Collect every session_goal entry for this goal \u2014 a single session
@@ -188,6 +233,7 @@ export default function ExportPage() {
         [`IEP Date: ${fmtDate(student.iep_date)}`],
         [`IEP Re-Eval Date: ${fmtDate(student.iep_re_eval_date)}`],
         [`Report Period: ${new Date(dateFrom + "T00:00:00").toLocaleDateString()} \u2014 ${new Date(dateTo + "T00:00:00").toLocaleDateString()}`],
+        [`Attendance: ${attendanceSummary}`],
         [],
         headerRow,
         ...dataRows,
@@ -198,7 +244,9 @@ export default function ExportPage() {
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
       // Auto-width columns
-      ws["!cols"] = headerRow.map((_, i) => ({ wch: i === 0 ? 12 : 40 }));
+      ws["!cols"] = headerRow.map((_, i) => ({
+        wch: i === 0 ? 12 : i === 1 ? 22 : 40,
+      }));
 
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
