@@ -96,11 +96,19 @@ export default async function StudentDetailPage({
               d.setFullYear(d.getFullYear() + 1);
               iepDueLabel = d.toLocaleDateString();
             }
+            // The current IEP's service minutes is what the weekly report reads;
+            // students.service_minutes is the older import field behind it.
+            const currentIep = (iepMeta || []).find(
+              (m: { iep_year: string | null }) => m.iep_year === null
+            );
+            const serviceMinutes =
+              currentIep?.service_minutes || student.service_minutes || null;
             const rows: [string, string | null][] = [
               ["Student #", student.student_number],
               ["Grade", student.grade],
               ["Teacher", student.teacher],
               ["Eligibility", student.eligibility],
+              ["Service Minutes", serviceMinutes],
               ["DOB", fmt(student.date_of_birth)],
               ["IEP Date", fmt(student.iep_date)],
               ["IEP Due", iepDueLabel],

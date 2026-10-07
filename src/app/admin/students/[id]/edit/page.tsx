@@ -26,12 +26,15 @@ export default function EditStudentPage() {
     teacher: "", eligibility: "", iep_re_eval_date: "",
     parent_phone: "", parent_phone_2: "", parent_email: "", notes: "",
     required_minutes_per_week: "",
+    iep_service_minutes: "",
   });
   // Service-minutes text, read-only here — shown so the weekly-minutes override
   // can be compared against what the records actually say. The current IEP's
   // value wins over the student record, matching the weekly report.
   const [serviceMinutesText, setServiceMinutesText] = useState<string | null>(null);
-  const [iepServiceMinutesText, setIepServiceMinutesText] = useState<string | null>(null);
+  // Row id of the student's current IEP, so a save updates that exact record
+  // instead of creating a second one.
+  const [currentIepId, setCurrentIepId] = useState<string | null>(null);
   const [existingGoals, setExistingGoals] = useState<Goal[]>([]);
   const [newGoals, setNewGoals] = useState<{ description: string }[]>([]);
 
@@ -44,9 +47,19 @@ export default function EditStudentPage() {
       supabase.from("students").select("*").eq("id", studentId).single(),
       supabase.from("goals").select("*").eq("student_id", studentId).eq("archived", false).is("iep_year", null).order("goal_number"),
       supabase.from("schools").select("*").eq("archived", false).order("name"),
-      supabase.from("student_ieps").select("service_minutes").eq("student_id", studentId).is("iep_year", null).maybeSingle(),
+      // Not maybeSingle(): a student with two "current" IEP rows would make
+      // that error out and silently look like no IEP at all. Take the oldest,
+      // which is the one the rest of the app settles on.
+      supabase
+        .from("student_ieps")
+        .select("id, service_minutes")
+        .eq("student_id", studentId)
+        .is("iep_year", null)
+        .order("created_at", { ascending: true })
+        .limit(1),
     ]);
-    setIepServiceMinutesText(iepMeta?.service_minutes ?? null);
+    const currentIep = (iepMeta || [])[0] ?? null;
+    setCurrentIepId(currentIep?.id ?? null);
     if (student) {
       setForm({
         name: student.name,
@@ -63,6 +76,7 @@ export default function EditStudentPage() {
         notes: student.notes || "",
         required_minutes_per_week:
           student.required_minutes_per_week != null ? String(student.required_minutes_per_week) : "",
+        iep_service_minutes: currentIep?.service_minutes ?? "",
       });
       setServiceMinutesText(student.service_minutes ?? null);
     }
@@ -93,6 +107,31 @@ export default function EditStudentPage() {
       notes: form.notes || null,
       required_minutes_per_week: parseOverrideMinutes(form.required_minutes_per_week),
     }).eq("id", studentId);
+
+    // Service minutes live on the IEP record, which is what the weekly report
+    // reads first. Saving is skipped entirely when the field was left blank and
+    // there is no IEP row yet, so editing an unrelated field never creates one.
+    const iepMinutes = form.iep_service_minutes.trim();
+    if (currentIepId) {
+      const { error } = await supabase
+        .from("student_ieps")
+        .update({ service_minutes: iepMinutes || null })
+        .eq("id", currentIepId);
+      if (error) {
+        setSaving(false);
+        alert("Saved the student, but the service minutes did not save: " + error.message);
+        return;
+      }
+    } else if (iepMinutes) {
+      const { error } = await supabase
+        .from("student_ieps")
+        .insert({ student_id: studentId, iep_year: null, service_minutes: iepMinutes });
+      if (error) {
+        setSaving(false);
+        alert("Saved the student, but the service minutes did not save: " + error.message);
+        return;
+      }
+    }
 
     // Update existing goals
     for (const goal of existingGoals) {
@@ -181,6 +220,23 @@ export default function EditStudentPage() {
             </div>
             <div className="md:col-span-2">
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
+                Service Minutes
+              </label>
+              <input
+                value={form.iep_service_minutes}
+                onChange={(e) => setForm({ ...form, iep_service_minutes: e.target.value })}
+                className={inputClass}
+                placeholder="30 MPW, SI- 30 MPW LI- 30 MPW, Consult, 120 MPM..."
+              />
+              {serviceMinutesText && serviceMinutesText !== form.iep_service_minutes && (
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  The original imported record still says &ldquo;{serviceMinutesText}&rdquo;. The IEP
+                  value above is the one used.
+                </p>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
                 Required Minutes / Week
               </label>
               <input
@@ -189,10 +245,10 @@ export default function EditStudentPage() {
                 value={form.required_minutes_per_week}
                 onChange={(e) => setForm({ ...form, required_minutes_per_week: e.target.value })}
                 className={inputClass}
-                placeholder="Leave blank to read it from the IEP"
+                placeholder="Leave blank to read it from the service minutes above"
               />
               <WeeklyMinutesHint
-                iepServiceMinutes={iepServiceMinutesText}
+                iepServiceMinutes={form.iep_service_minutes}
                 serviceMinutes={serviceMinutesText}
                 override={form.required_minutes_per_week}
               />
@@ -317,17 +373,21 @@ function WeeklyMinutesHint({
     );
   }
 
+  // "Consult" and monthly minutes are answers, not gaps: the student genuinely
+  // has no weekly obligation, so leaving the report is correct and there is
+  // nothing to fix. Only unreadable or missing text needs a nudge.
+  const deliberate = parsed.reason === "consult" || parsed.reason === "monthly";
   const why =
-    parsed.reason === "monthly" ? "those are monthly minutes" :
-    parsed.reason === "consult" ? "consult-only students have no weekly minutes" :
+    parsed.reason === "monthly" ? "those are monthly minutes, which the weekly report doesn't cover" :
+    parsed.reason === "consult" ? "consult-only students have no weekly minutes to fall short of" :
     parsed.reason === "empty" ? "no service minutes are recorded" :
     "the wording isn't one we can read";
 
   return (
-    <p className="text-[11px] text-amber-700 mt-1.5">
+    <p className={`text-[11px] mt-1.5 ${deliberate ? "text-slate-400" : "text-amber-700"}`}>
       Not tracked on the weekly report
       {parsed.text ? <> — {whereFrom} says &ldquo;{parsed.text}&rdquo;, and {why}</> : <> — {why}</>}.
-      Enter a number above to include this student.
+      {deliberate ? null : " Fill in the service minutes above, or set a number here, to include this student."}
     </p>
   );
 }

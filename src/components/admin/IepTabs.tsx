@@ -60,6 +60,7 @@ export default function IepTabs({ studentId, currentGoals: initialCurrentGoals, 
     setArchivedGoals((prev) => prev.map((g) => g.id === goalId ? { ...g, description: editText.trim() } : g));
     setEditingGoal(null);
     setBusy(false);
+    router.refresh();
   }
 
   async function deleteGoal(goalId: string, isCurrent: boolean) {
@@ -81,6 +82,7 @@ export default function IepTabs({ studentId, currentGoals: initialCurrentGoals, 
       setArchivedGoals((prev) => prev.filter((g) => g.id !== goalId));
     }
     setBusy(false);
+    router.refresh();
   }
 
   async function addGoal(iepYear: string | null, archived: boolean) {
@@ -109,6 +111,7 @@ export default function IepTabs({ studentId, currentGoals: initialCurrentGoals, 
     setNewGoalText("");
     setAddingTo(null);
     setBusy(false);
+    router.refresh();
   }
 
   // --- IEP Metadata ---
@@ -131,18 +134,33 @@ export default function IepTabs({ studentId, currentGoals: initialCurrentGoals, 
       service_minutes: metaForm.service_minutes || null,
     };
     if (metaId && !metaId.startsWith("new-")) {
-      await supabase.from("student_ieps").update(payload).eq("id", metaId);
+      const { error } = await supabase.from("student_ieps").update(payload).eq("id", metaId);
+      if (error) {
+        setBusy(false);
+        alert("Could not save the IEP details: " + error.message);
+        return;
+      }
       setIepMeta((prev) => prev.map((m) => m.id === metaId ? { ...m, ...payload } : m));
     } else {
-      const { data } = await supabase.from("student_ieps").insert({
+      const { data, error } = await supabase.from("student_ieps").insert({
         student_id: studentId,
         iep_year: iepYear,
         ...payload,
       }).select().single();
-      if (data) setIepMeta([...iepMeta, data]);
+      // A failed insert used to leave the form looking saved while nothing had
+      // changed, which reads as "I edited it and it didn't stick".
+      if (error || !data) {
+        setBusy(false);
+        alert("Could not save the IEP details: " + (error?.message ?? "no record was created."));
+        return;
+      }
+      setIepMeta([...iepMeta, data]);
     }
     setEditingMeta(null);
     setBusy(false);
+    // The student page is server-rendered, so without this the saved value
+    // disappears again as soon as the page is revisited.
+    router.refresh();
   }
 
   // --- IEP Operations ---
@@ -156,6 +174,7 @@ export default function IepTabs({ studentId, currentGoals: initialCurrentGoals, 
     setArchivedGoals((prev) => prev.filter((g) => g.iep_year !== year));
     setIepMeta((prev) => prev.filter((m) => m.iep_year !== year));
     setBusy(false);
+    router.refresh();
   }
 
   async function makeCurrent(year: string) {
