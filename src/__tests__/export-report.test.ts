@@ -282,7 +282,6 @@ describe("header fields", () => {
       "Student #",
       "Date of Birth",
       "Grade",
-      "Teacher",
       "School",
       "Eligibility",
       "Service Minutes",
@@ -291,6 +290,28 @@ describe("header fields", () => {
       "Report Period",
       "Attendance",
     ]);
+  });
+
+  it("does not print the teacher", () => {
+    const report = buildStudentReport(student, [], "2026-09-01", "2026-09-30");
+    expect(report.headerFields.some((f) => f.label === "Teacher")).toBe(false);
+    expect(report.headerFields.some((f) => f.value === "Ms. Smith")).toBe(false);
+  });
+
+  it("prefers the current IEP's service minutes over the student record", () => {
+    const report = buildStudentReport(student, [], "2026-09-01", "2026-09-30", {
+      iepServiceMinutes: "Consult",
+    });
+    expect(report.headerFields.find((f) => f.label === "Service Minutes")?.value).toBe("Consult");
+  });
+
+  it("falls back to the student record when the IEP has no service minutes", () => {
+    for (const iepServiceMinutes of [null, "", "   "]) {
+      const report = buildStudentReport(student, [], "2026-09-01", "2026-09-30", {
+        iepServiceMinutes,
+      });
+      expect(report.headerFields.find((f) => f.label === "Service Minutes")?.value).toBe("60 MPW");
+    }
   });
 });
 

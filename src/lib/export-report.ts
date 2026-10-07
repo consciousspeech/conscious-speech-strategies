@@ -178,11 +178,22 @@ function ageLabel(dobIso: string, asOfIso: string): string {
   return `${dob.toLocaleDateString()} (Age ${years} yr ${months} mo)`;
 }
 
+export interface BuildReportOptions {
+  /**
+   * `service_minutes` from the student's current IEP. This is the value the
+   * rest of the app reads first, so the report header has to show it too --
+   * otherwise a student whose IEP was changed to "Consult" still has the old
+   * imported "30 MPW" printed on their progress report.
+   */
+  iepServiceMinutes?: string | null;
+}
+
 export function buildStudentReport(
   student: ReportStudentInput,
   sessions: ReportSessionInput[],
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  options: BuildReportOptions = {}
 ): StudentReport {
   // Every distinct goal actually worked on during the period. Matched by
   // goal.id, not goal_number -- a student can have goals across several IEP
@@ -272,10 +283,12 @@ export function buildStudentReport(
       value: student.date_of_birth ? ageLabel(student.date_of_birth, dateTo) : "",
     },
     { label: "Grade", value: student.grade || "" },
-    { label: "Teacher", value: student.teacher || "" },
     { label: "School", value: student.school?.name || "" },
     { label: "Eligibility", value: student.eligibility || "" },
-    { label: "Service Minutes", value: student.service_minutes || "" },
+    {
+      label: "Service Minutes",
+      value: (options.iepServiceMinutes || "").trim() || student.service_minutes || "",
+    },
     { label: "IEP Date", value: fmt(student.iep_date) },
     { label: "IEP Re-Eval Date", value: fmt(student.iep_re_eval_date) },
     { label: "Report Period", value: `${localDate(dateFrom)} — ${localDate(dateTo)}` },

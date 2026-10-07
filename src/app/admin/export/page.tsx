@@ -53,6 +53,21 @@ export default function ExportPage() {
   /** Pull every selected student's sessions and turn them into report models. */
   async function loadReports(): Promise<{ student: Student; report: StudentReport }[]> {
     const out: { student: Student; report: StudentReport }[] = [];
+
+    // Current-IEP service minutes for everyone in one query. The report header
+    // has to show the same value the rest of the app reads, not the older
+    // figure on the student record.
+    const { data: iepRows } = await supabase
+      .from("student_ieps")
+      .select("student_id, service_minutes")
+      .in("student_id", selectedStudents)
+      .is("iep_year", null);
+    const iepMinutes = new Map(
+      ((iepRows || []) as { student_id: string; service_minutes: string | null }[]).map(
+        (r) => [r.student_id, r.service_minutes]
+      )
+    );
+
     for (const studentId of selectedStudents) {
       const student = students.find((s) => s.id === studentId);
       if (!student) continue;
@@ -72,7 +87,8 @@ export default function ExportPage() {
           student as ReportStudentInput,
           (sessions || []) as ReportSessionInput[],
           dateFrom,
-          dateTo
+          dateTo,
+          { iepServiceMinutes: iepMinutes.get(studentId) ?? null }
         ),
       });
     }
