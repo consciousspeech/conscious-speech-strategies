@@ -102,6 +102,7 @@ export default function ExportPage() {
         const headerRow = [
           "Date",
           "Attendance",
+          ...(report.hasPushIn ? ["Setting"] : []),
           ...report.goals.map(goalColumnLabel),
           "Notes",
         ];
@@ -118,6 +119,7 @@ export default function ExportPage() {
           return [
             row.date,
             attendanceText(row.attendance),
+            ...(report.hasPushIn ? [row.setting] : []),
             ...row.goalCells.map((lines) => (lines.length > 0 ? lines.join("\n") : NO_DATA)),
             row.notes,
           ];
@@ -131,8 +133,9 @@ export default function ExportPage() {
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(wsData);
+        const settingCol = report.hasPushIn ? 2 : -1;
         ws["!cols"] = headerRow.map((_, i) => ({
-          wch: i === 0 ? 12 : i === 1 ? 22 : 40,
+          wch: i === 0 ? 12 : i === 1 ? 22 : i === settingCol ? 28 : 40,
         }));
         // Sheet names are capped at 31 characters by Excel.
         XLSX.utils.book_append_sheet(wb, ws, student.name.slice(0, 31));

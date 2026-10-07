@@ -294,6 +294,72 @@ describe("header fields", () => {
   });
 });
 
+describe("push-in setting", () => {
+  it("flags a period containing a push-in session", () => {
+    const report = buildStudentReport(
+      student,
+      [
+        session({ date: "2026-09-01", service_type: "pull_out" }),
+        session({ date: "2026-09-08", service_type: "push_in", push_in_notes: "McNeff rm. 231" }),
+      ],
+      "2026-09-01",
+      "2026-09-30"
+    );
+    expect(report.hasPushIn).toBe(true);
+  });
+
+  it("leaves a pull-out-only period unflagged, so no column is added", () => {
+    const report = buildStudentReport(
+      student,
+      [session({ date: "2026-09-01", service_type: "pull_out", push_in_notes: "Room 134" })],
+      "2026-09-01",
+      "2026-09-30"
+    );
+    expect(report.hasPushIn).toBe(false);
+  });
+
+  it("does not count a push-in session the student missed", () => {
+    const report = buildStudentReport(
+      student,
+      [session({ date: "2026-09-01", service_type: "push_in", occurred: false, no_show_type: "student_absent" })],
+      "2026-09-01",
+      "2026-09-30"
+    );
+    expect(report.hasPushIn).toBe(false);
+  });
+
+  it("prints the teacher and room beside the service type", () => {
+    const rows = sessionRows([
+      session({ date: "2026-09-01", service_type: "push_in", push_in_notes: "Ms. Rivera \u2014 Room 214" }),
+      session({ date: "2026-09-08", service_type: "pull_out", push_in_notes: "Room 134" }),
+    ]);
+    expect(rows.map((r) => (r.kind === "session" ? r.setting : ""))).toEqual([
+      "Push-in \u2014 Ms. Rivera \u2014 Room 214",
+      "Pull-out \u2014 Room 134",
+    ]);
+  });
+
+  it("still names the service type when no room was recorded", () => {
+    const rows = sessionRows([
+      session({ date: "2026-09-01", service_type: "push_in" }),
+      session({ date: "2026-09-08", service_type: "pull_out", push_in_notes: "   " }),
+    ]);
+    expect(rows.map((r) => (r.kind === "session" ? r.setting : ""))).toEqual(["Push-in", "Pull-out"]);
+  });
+
+  it("leaves the setting blank for a session that did not happen", () => {
+    const [row] = sessionRows([
+      session({ date: "2026-09-01", service_type: "push_in", push_in_notes: "Room 214", occurred: false, no_show_type: "school_closure" }),
+    ]);
+    expect(row.kind === "session" && row.setting).toBe("");
+  });
+
+  it("treats a session with no recorded service type as pull-out", () => {
+    const [row] = sessionRows([session({ date: "2026-09-01", push_in_notes: "Room 134" })]);
+    expect(row.kind === "session" && row.setting).toBe("Pull-out \u2014 Room 134");
+  });
+});
+
 describe("empty period", () => {
   it("produces no rows and no goals when nothing was logged", () => {
     const report = buildStudentReport(student, [], "2026-09-01", "2026-09-30");

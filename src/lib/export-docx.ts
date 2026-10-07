@@ -45,6 +45,7 @@ const CONTENT_WIDTH = LETTER_LONG - MARGIN * 2;
 
 const DATE_WIDTH = 1000;
 const ATTENDANCE_WIDTH = 1800;
+const SETTING_WIDTH = 2000;
 const NOTES_WIDTH = 2000;
 
 const INK = "1F2937";
@@ -85,23 +86,32 @@ const NO_BORDERS = {
  */
 const MAX_GOAL_WIDTH = 3200;
 
-function columnWidths(goalCount: number): {
+function columnWidths(goalCount: number, withSetting: boolean): {
   date: number;
   attendance: number;
+  setting: number;
   goal: number;
   notes: number;
   all: number[];
 } {
-  const fixed = DATE_WIDTH + ATTENDANCE_WIDTH + NOTES_WIDTH;
+  const setting = withSetting ? SETTING_WIDTH : 0;
+  const fixed = DATE_WIDTH + ATTENDANCE_WIDTH + setting + NOTES_WIDTH;
   const available = CONTENT_WIDTH - fixed;
   const goal = goalCount > 0 ? Math.min(MAX_GOAL_WIDTH, Math.floor(available / goalCount)) : 0;
   const notes = NOTES_WIDTH + (available - goal * goalCount);
   return {
     date: DATE_WIDTH,
     attendance: ATTENDANCE_WIDTH,
+    setting,
     goal,
     notes,
-    all: [DATE_WIDTH, ATTENDANCE_WIDTH, ...Array(goalCount).fill(goal), notes],
+    all: [
+      DATE_WIDTH,
+      ATTENDANCE_WIDTH,
+      ...(withSetting ? [setting] : []),
+      ...Array(goalCount).fill(goal),
+      notes,
+    ],
   };
 }
 
@@ -182,8 +192,8 @@ function goalHeaderCell(goal: ReportGoal, width: number): TableCell {
 }
 
 function sessionTable(report: StudentReport): Table {
-  const w = columnWidths(report.goals.length);
-  const totalColumns = report.goals.length + 3;
+  const w = columnWidths(report.goals.length, report.hasPushIn);
+  const totalColumns = report.goals.length + (report.hasPushIn ? 4 : 3);
 
   const rows: TableRow[] = [
     new TableRow({
@@ -194,6 +204,9 @@ function sessionTable(report: StudentReport): Table {
           width: w.attendance,
           fill: HEADER_FILL,
         }),
+        ...(report.hasPushIn
+          ? [cell([text("Setting", { bold: true })], { width: w.setting, fill: HEADER_FILL })]
+          : []),
         ...report.goals.map((g) => goalHeaderCell(g, w.goal)),
         cell([text("Notes", { bold: true })], { width: w.notes, fill: HEADER_FILL }),
       ],
@@ -236,6 +249,9 @@ function sessionTable(report: StudentReport): Table {
         children: [
           cell([text(row.date)], { width: w.date, fill }),
           cell(attendanceParagraphs, { width: w.attendance, fill }),
+          ...(report.hasPushIn
+            ? [cell([text(row.setting)], { width: w.setting, fill })]
+            : []),
           ...row.goalCells.map((lines) =>
             cell(
               lines.length > 0

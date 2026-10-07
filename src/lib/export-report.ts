@@ -38,6 +38,12 @@ export type ReportRow =
        * several data points for one goal. `[]` means nothing was recorded.
        */
       goalCells: string[][];
+      /**
+       * Where the session happened: "Push-in -- Ms. Rivera, Room 214", or
+       * "Pull-out -- Room 134". Empty for a session that did not happen.
+       * Only rendered when the student has push-in sessions in the period.
+       */
+      setting: string;
       notes: string;
     }
   | {
@@ -53,6 +59,13 @@ export interface StudentReport {
   headerFields: { label: string; value: string }[];
   /** e.g. "22 attended (2 make-up), 3 student absent" */
   attendanceSummary: string;
+  /**
+   * True when at least one session in the period was push-in. Most students
+   * are pull-out throughout, and a column repeating "Pull-out" on every row
+   * would cost width that the goal columns need, so the exporters add the
+   * Setting column only for the students it tells you something about.
+   */
+  hasPushIn: boolean;
 }
 
 /** Minimal shape the builder needs; the real rows carry more columns. */
@@ -74,6 +87,9 @@ export interface ReportSessionInput {
   is_makeup?: boolean | null;
   iep_year?: string | null;
   notes?: string | null;
+  service_type?: string | null;
+  /** The session form calls this "Teacher name / room number". */
+  push_in_notes?: string | null;
   session_goals?: ReportSessionGoalInput[] | null;
 }
 
@@ -114,6 +130,15 @@ function attendanceFor(session: ReportSessionInput): ReportAttendance {
     reason,
     occurred: true,
   };
+}
+
+function settingFor(session: ReportSessionInput): string {
+  // A session that did not happen has no setting worth printing; whatever
+  // service_type it carries is just the form default.
+  if (session.occurred === false) return "";
+  const where = (session.push_in_notes || "").trim();
+  const label = session.service_type === "push_in" ? "Push-in" : "Pull-out";
+  return where ? `${label} \u2014 ${where}` : label;
 }
 
 /**
@@ -204,6 +229,7 @@ export function buildStudentReport(
           .filter((sg) => sg.goal?.id === g.id)
           .map(dataPointText)
       ),
+      setting: settingFor(session),
       notes: (session.notes || "").trim(),
     });
   }
@@ -256,7 +282,11 @@ export function buildStudentReport(
     { label: "Attendance", value: attendanceSummary },
   ];
 
-  return { goals, rows, headerFields, attendanceSummary };
+  const hasPushIn = sessions.some(
+    (s) => s.occurred !== false && s.service_type === "push_in"
+  );
+
+  return { goals, rows, headerFields, attendanceSummary, hasPushIn };
 }
 
 /** Column heading for a goal, e.g. "Goal 2 [IEP 2025-2026]: Produce /s/...". */
