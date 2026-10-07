@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Student, School } from "@/lib/supabase/types";
+import {
+  NO_DATA,
+  attendanceText,
+  buildStudentReport,
+  goalColumnLabel,
+  type ReportSessionInput,
+  type ReportStudentInput,
+  type StudentReport,
+} from "@/lib/export-report";
 import * as XLSX from "xlsx";
 
 export default function ExportPage() {
@@ -13,7 +22,7 @@ export default function ExportPage() {
   const [schoolFilter, setSchoolFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"xlsx" | "docx" | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -41,18 +50,14 @@ export default function ExportPage() {
     });
   }
 
-  async function handleExport() {
-    if (selectedStudents.length === 0) return alert("Select at least one student.");
-    if (!dateFrom || !dateTo) return alert("Select a date range.");
-    setExporting(true);
-
-    const wb = XLSX.utils.book_new();
-
+  /** Pull every selected student's sessions and turn them into report models. */
+  async function loadReports(): Promise<{ student: Student; report: StudentReport }[]> {
+    const out: { student: Student; report: StudentReport }[] = [];
     for (const studentId of selectedStudents) {
       const student = students.find((s) => s.id === studentId);
       if (!student) continue;
 
-      // Fetch sessions in date range, with their linked goals fully expanded
+      // Sessions in the date range, with their linked goals fully expanded.
       const { data: sessions } = await supabase
         .from("sessions")
         .select("*, session_goals(*, goal:goals(id, goal_number, description, iep_year))")
@@ -61,200 +66,108 @@ export default function ExportPage() {
         .lte("date", dateTo)
         .order("date");
 
-      // Collect every distinct goal that was actually worked on during this
-      // period. Match by goal.id (UUID), not by goal_number \u2014 students can have
-      // goals across multiple IEP years that share numbers.
-      type ExportGoal = {
-        id: string;
-        goal_number: number;
-        description: string;
-        iep_year: string | null;
-      };
-      const goalMap = new Map<string, ExportGoal>();
-      for (const session of (sessions || []) as Record<string, unknown>[]) {
-        for (const sg of (session.session_goals as Record<string, unknown>[]) || []) {
-          const g = sg.goal as ExportGoal | null;
-          if (g && g.id && !goalMap.has(g.id)) goalMap.set(g.id, g);
-        }
-      }
-      // Sort: older IEP year first, then by goal_number. Goals without an
-      // iep_year sort last.
-      const goals = Array.from(goalMap.values()).sort((a, b) => {
-        const ay = a.iep_year ?? "";
-        const by = b.iep_year ?? "";
-        if (ay !== by) {
-          if (!ay) return 1;
-          if (!by) return -1;
-          return ay.localeCompare(by);
-        }
-        return (a.goal_number ?? 0) - (b.goal_number ?? 0);
+      out.push({
+        student,
+        report: buildStudentReport(
+          student as ReportStudentInput,
+          (sessions || []) as ReportSessionInput[],
+          dateFrom,
+          dateTo
+        ),
       });
-
-      // Build rows: header row with goal descriptions, then data rows
-      const headerRow = ["Date", "Attendance"];
-      goals.forEach((g) => {
-        const yearLabel = g.iep_year ? ` [IEP ${g.iep_year}]` : "";
-        headerRow.push(`Goal ${g.goal_number}${yearLabel}: ${g.description}`);
-      });
-      headerRow.push("Notes");
-
-      // Attendance label for one session. Mirrors the wording used in Session
-      // History so a report and the dashboard never disagree. The reason text
-      // (e.g. the name of the school activity) goes on a second line inside
-      // the same cell.
-      const NO_SHOW_LABELS: Record<string, string> = {
-        student_absent: "Student absent",
-        school_activity: "School activity",
-        school_closure: "School closure",
-      };
-      function attendanceCell(session: Record<string, unknown>): string {
-        const reason = ((session.no_show_reason as string | null) || "").trim();
-        if (session.occurred === false) {
-          const type = session.no_show_type as string | null;
-          const label = (type && NO_SHOW_LABELS[type]) || "Did not occur";
-          return reason ? `${label}\n${reason}` : label;
-        }
-        const label = session.is_makeup ? "Attended (make-up)" : "Attended";
-        return reason ? `${label}\n${reason}` : label;
-      }
-
-      // Count each attendance category over the period so the reader gets the
-      // totals without tallying rows by hand.
-      const tally = { attended: 0, makeup: 0, student_absent: 0, school_activity: 0, school_closure: 0, other: 0 };
-      for (const session of (sessions || []) as Record<string, unknown>[]) {
-        if (session.occurred === false) {
-          const type = session.no_show_type as string | null;
-          if (type === "student_absent") tally.student_absent += 1;
-          else if (type === "school_activity") tally.school_activity += 1;
-          else if (type === "school_closure") tally.school_closure += 1;
-          else tally.other += 1;
-        } else {
-          tally.attended += 1;
-          if (session.is_makeup) tally.makeup += 1;
-        }
-      }
-      const attendanceParts = [
-        `${tally.attended} attended${tally.makeup > 0 ? ` (${tally.makeup} make-up)` : ""}`,
-      ];
-      if (tally.student_absent > 0) attendanceParts.push(`${tally.student_absent} student absent`);
-      if (tally.school_activity > 0) attendanceParts.push(`${tally.school_activity} school activity`);
-      if (tally.school_closure > 0) attendanceParts.push(`${tally.school_closure} school closure`);
-      if (tally.other > 0) attendanceParts.push(`${tally.other} did not occur`);
-      const attendanceSummary = attendanceParts.join(", ");
-
-      // Build session rows in date order, inserting an "IEP separator"
-      // row at every IEP-year transition so the reader can see exactly
-      // where the new IEP took effect.
-      const dataRows: (string | number)[][] = [];
-      let prevIepYear: string | null | undefined = undefined;
-      for (const session of (sessions || []) as Record<string, unknown>[]) {
-        const iepYear = (session.iep_year as string | null) ?? null;
-        if (prevIepYear !== undefined && prevIepYear !== iepYear) {
-          const label = iepYear
-            ? `── New IEP starts: ${iepYear} ──`
-            : "── Current IEP ──";
-          const sep: (string | number)[] = [label];
-          // One blank for Attendance, one per goal, one for Notes.
-          for (let i = 0; i < goals.length + 2; i++) sep.push("");
-          dataRows.push(sep);
-        }
-        prevIepYear = iepYear;
-
-        const row: (string | number)[] = [
-          new Date((session.date as string) + "T00:00:00").toLocaleDateString(),
-          attendanceCell(session),
-        ];
-        goals.forEach((g) => {
-          // Collect every session_goal entry for this goal \u2014 a single session
-          // can have multiple data points (trials) for the same goal.
-          const matches = ((session.session_goals as Record<string, unknown>[]) || []).filter(
-            (sg) => (sg.goal as Record<string, unknown> | null)?.id === g.id
-          );
-          if (matches.length === 0) {
-            row.push("\u2014");
-          } else {
-            // Format each data point as:
-            //   [target:] correct/total (%) [\u2014 performance_level] [\u2014 notes]
-            // Then stack multiple points on separate lines inside the cell.
-            row.push(
-              matches
-                .map((sg) => {
-                  const target = (sg.target as string | null) || "";
-                  const perf = (sg.performance_level as string | null) || "";
-                  const notes = (sg.notes as string | null) || "";
-                  const total = Number(sg.total_count) || 0;
-                  const parts: string[] = [];
-                  if (target) parts.push(`${target}:`);
-                  if (total > 0) {
-                    parts.push(`${sg.correct_count}/${sg.total_count} (${sg.percentage}%)`);
-                  } else if (!target && !notes && !perf) {
-                    // Nothing meaningful to show \u2014 fall back to a dash.
-                    parts.push("\u2014");
-                  }
-                  if (perf) parts.push(`\u2014 ${perf}`);
-                  if (notes) parts.push(`\u2014 ${notes}`);
-                  return parts.join(" ");
-                })
-                .join("\n")
-            );
-          }
-        });
-        row.push((session.notes as string) || "");
-        dataRows.push(row);
-      }
-
-      // Compute age from DOB (years + months) for the report header
-      let dobLabel = "";
-      if (student.date_of_birth) {
-        const dob = new Date(student.date_of_birth + "T00:00:00");
-        const ref = new Date(dateTo + "T00:00:00");
-        let years = ref.getFullYear() - dob.getFullYear();
-        let months = ref.getMonth() - dob.getMonth();
-        if (ref.getDate() < dob.getDate()) months -= 1;
-        if (months < 0) {
-          years -= 1;
-          months += 12;
-        }
-        dobLabel = `${dob.toLocaleDateString()} (Age ${years} yr ${months} mo)`;
-      }
-
-      const fmtDate = (iso: string | null) =>
-        iso ? new Date(iso + "T00:00:00").toLocaleDateString() : "";
-
-      const wsData = [
-        [`Student: ${student.name}`],
-        [`Student #: ${student.student_number || ""}`],
-        [`Date of Birth: ${dobLabel}`],
-        [`Grade: ${student.grade || ""}`],
-        [`Teacher: ${student.teacher || ""}`],
-        [`School: ${student.school?.name || ""}`],
-        [`Eligibility: ${student.eligibility || ""}`],
-        [`Service Minutes: ${student.service_minutes || ""}`],
-        [`IEP Date: ${fmtDate(student.iep_date)}`],
-        [`IEP Re-Eval Date: ${fmtDate(student.iep_re_eval_date)}`],
-        [`Report Period: ${new Date(dateFrom + "T00:00:00").toLocaleDateString()} \u2014 ${new Date(dateTo + "T00:00:00").toLocaleDateString()}`],
-        [`Attendance: ${attendanceSummary}`],
-        [],
-        headerRow,
-        ...dataRows,
-      ];
-
-      // Truncate sheet name to 31 chars (Excel limit)
-      const sheetName = student.name.slice(0, 31);
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-      // Auto-width columns
-      ws["!cols"] = headerRow.map((_, i) => ({
-        wch: i === 0 ? 12 : i === 1 ? 22 : 40,
-      }));
-
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
+    return out;
+  }
 
-    // Download
-    const filename = `Quarterly_Report_${dateFrom}_to_${dateTo}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    setExporting(false);
+  function validate(): boolean {
+    if (selectedStudents.length === 0) {
+      alert("Select at least one student.");
+      return false;
+    }
+    if (!dateFrom || !dateTo) {
+      alert("Select a date range.");
+      return false;
+    }
+    return true;
+  }
+
+  async function handleExportExcel() {
+    if (!validate()) return;
+    setExporting("xlsx");
+    try {
+      const reports = await loadReports();
+      const wb = XLSX.utils.book_new();
+
+      for (const { student, report } of reports) {
+        const headerRow = [
+          "Date",
+          "Attendance",
+          ...report.goals.map(goalColumnLabel),
+          "Notes",
+        ];
+
+        const dataRows: string[][] = report.rows.map((row) => {
+          if (row.kind === "iep-separator") {
+            // Spreadsheets have no merged-cell concept here, so the label
+            // sits in the first column and the rest of the row is padded.
+            return [
+              `\u2500\u2500 ${row.label} \u2500\u2500`,
+              ...Array(headerRow.length - 1).fill(""),
+            ];
+          }
+          return [
+            row.date,
+            attendanceText(row.attendance),
+            ...row.goalCells.map((lines) => (lines.length > 0 ? lines.join("\n") : NO_DATA)),
+            row.notes,
+          ];
+        });
+
+        const wsData = [
+          ...report.headerFields.map((f) => [`${f.label}: ${f.value}`]),
+          [],
+          headerRow,
+          ...dataRows,
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws["!cols"] = headerRow.map((_, i) => ({
+          wch: i === 0 ? 12 : i === 1 ? 22 : 40,
+        }));
+        // Sheet names are capped at 31 characters by Excel.
+        XLSX.utils.book_append_sheet(wb, ws, student.name.slice(0, 31));
+      }
+
+      XLSX.writeFile(wb, `Quarterly_Report_${dateFrom}_to_${dateTo}.xlsx`);
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function handleExportWord() {
+    if (!validate()) return;
+    setExporting("docx");
+    try {
+      const reports = await loadReports();
+      // docx and its zip writer are only needed on this click, so they stay
+      // out of the initial page bundle.
+      const [{ Packer }, { buildReportDocument }] = await Promise.all([
+        import("docx"),
+        import("@/lib/export-docx"),
+      ]);
+      const blob = await Packer.toBlob(buildReportDocument(reports.map((r) => r.report)));
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Quarterly_Report_${dateFrom}_to_${dateTo}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(null);
+    }
   }
 
   const inputClass = "w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white outline-none transition-all text-sm text-slate-900 placeholder:text-slate-400";
@@ -289,13 +202,25 @@ export default function ExportPage() {
             </select>
           </div>
 
-          <button onClick={handleExport} disabled={exporting || selectedStudents.length === 0}
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-lg font-medium text-[13px] transition-colors disabled:opacity-50 cursor-pointer inline-flex items-center justify-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-            </svg>
-            {exporting ? "Generating..." : `Export ${selectedStudents.length} Student${selectedStudents.length !== 1 ? "s" : ""}`}
-          </button>
+          <div className="space-y-2">
+            <p className="text-[13px] text-slate-500 px-0.5">
+              {selectedStudents.length} student{selectedStudents.length !== 1 ? "s" : ""} selected
+            </p>
+            <button onClick={handleExportWord} disabled={exporting !== null || selectedStudents.length === 0}
+              className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-lg font-medium text-[13px] transition-colors disabled:opacity-50 cursor-pointer inline-flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              {exporting === "docx" ? "Generating..." : "Export to Word"}
+            </button>
+            <button onClick={handleExportExcel} disabled={exporting !== null || selectedStudents.length === 0}
+              className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-2.5 rounded-lg font-medium text-[13px] transition-colors disabled:opacity-50 cursor-pointer inline-flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              {exporting === "xlsx" ? "Generating..." : "Export to Excel"}
+            </button>
+          </div>
         </div>
 
         {/* Student Selection */}
