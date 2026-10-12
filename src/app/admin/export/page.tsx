@@ -12,6 +12,7 @@ import {
   type ReportStudentInput,
   type StudentReport,
 } from "@/lib/export-report";
+import { matchesStudentSearch, searchKey } from "@/lib/student-search";
 import * as XLSX from "xlsx";
 
 export default function ExportPage() {
@@ -20,6 +21,7 @@ export default function ExportPage() {
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [schoolFilter, setSchoolFilter] = useState("");
+  const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [exporting, setExporting] = useState<"xlsx" | "docx" | null>(null);
@@ -34,7 +36,16 @@ export default function ExportPage() {
     });
   }, []);
 
-  const filteredStudents = students.filter((s) => !schoolFilter || s.school_id === schoolFilter);
+  const hasSearch = searchKey(search).length > 0;
+  const filteredStudents = students.filter(
+    (s) => (!schoolFilter || s.school_id === schoolFilter) && matchesStudentSearch(s, search)
+  );
+
+  // Students picked earlier stay picked when the search narrows past them, so
+  // the count has to be reported separately from what is on screen.
+  const hiddenSelectedCount = selectedStudents.filter(
+    (id) => !filteredStudents.some((s) => s.id === id)
+  ).length;
 
   function toggleStudent(id: string) {
     setSelectedStudents((prev) =>
@@ -251,11 +262,49 @@ export default function ExportPage() {
         {/* Student Selection */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-              <h2 className="font-semibold text-slate-900 text-[15px]">Select Students</h2>
-              <button onClick={selectAll} className="text-[13px] text-teal-600 hover:text-teal-700 font-medium cursor-pointer">
-                {filteredStudents.every((s) => selectedStudents.includes(s.id)) ? "Deselect All" : "Select All"}
-              </button>
+            <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-slate-900 text-[15px]">Select Students</h2>
+                <button
+                  onClick={selectAll}
+                  disabled={filteredStudents.length === 0}
+                  className="text-[13px] text-teal-600 hover:text-teal-700 font-medium cursor-pointer disabled:opacity-40"
+                >
+                  {filteredStudents.length > 0 && filteredStudents.every((s) => selectedStudents.includes(s.id))
+                    ? hasSearch || schoolFilter ? "Deselect these" : "Deselect All"
+                    : hasSearch || schoolFilter ? "Select these" : "Select All"}
+                </button>
+              </div>
+              <div className="relative">
+                <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name or student number"
+                  className="w-full pl-9 pr-9 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all text-sm text-slate-900 placeholder:text-slate-400"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-slate-500 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {hiddenSelectedCount > 0 && (
+                <p className="text-[12px] text-slate-500">
+                  {hiddenSelectedCount} selected student{hiddenSelectedCount === 1 ? " is" : "s are"} hidden by
+                  the current filter, and will still be exported.
+                </p>
+              )}
             </div>
             <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
               {filteredStudents.map((student) => (
@@ -268,12 +317,16 @@ export default function ExportPage() {
                   />
                   <div>
                     <p className="text-[13px] font-medium text-slate-900">{student.name}</p>
-                    <p className="text-xs text-slate-400">{student.school?.name}</p>
+                    <p className="text-xs text-slate-400">
+                      {[student.school?.name, student.student_number].filter(Boolean).join(" \u00b7 ")}
+                    </p>
                   </div>
                 </label>
               ))}
               {filteredStudents.length === 0 && (
-                <p className="px-5 py-10 text-center text-slate-400 text-sm">No students found.</p>
+                <p className="px-5 py-10 text-center text-slate-400 text-sm">
+                  {search ? `No students match \u201C${search}\u201D.` : "No students found."}
+                </p>
               )}
             </div>
           </div>
