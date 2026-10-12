@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import type { Goal } from "@/lib/supabase/types";
+import {
+  describeExisting,
+  matchingSlot,
+  type ExistingSession,
+} from "@/lib/session-duplicates";
 
 // Default pull-out room per school. Matched case-insensitively by substring so
 // name variations (e.g. "SLAM Tampa Elem" vs "SLAM Tampa Elementary") still hit.
@@ -37,6 +42,8 @@ export default function NewSessionPage() {
   const [serviceType, setServiceType] = useState<"pull_out" | "push_in">("pull_out");
   const [pushInNotes, setPushInNotes] = useState("");
   const [isMakeup, setIsMakeup] = useState(false);
+  // Sessions already logged for this student on the chosen date.
+  const [existingOnDate, setExistingOnDate] = useState<ExistingSession[]>([]);
 
   // Hydrate last-used service time / type from localStorage so re-entry is fast
   useEffect(() => {
@@ -55,6 +62,47 @@ export default function NewSessionPage() {
   useEffect(() => {
     loadData();
   }, [studentId]);
+
+  // Re-checked whenever the date changes, so the warning is in front of the
+  // user while they fill the form rather than only at the end.
+  useEffect(() => {
+    let cancelled = false;
+    if (!date) {
+      setExistingOnDate([]);
+      return;
+    }
+    supabase
+      .from("sessions")
+      .select("id, service_time, occurred, no_show_type, created_at, entered_by_profile:profiles!entered_by(name), session_goals(id)")
+      .eq("student_id", studentId)
+      .eq("date", date)
+      .order("created_at")
+      .then(({ data }) => {
+        if (cancelled) return;
+        setExistingOnDate(
+          ((data || []) as unknown as Array<{
+            id: string;
+            service_time: string | null;
+            occurred: boolean;
+            no_show_type: string | null;
+            created_at: string;
+            entered_by_profile: { name: string } | null;
+            session_goals: unknown[] | null;
+          }>).map((r) => ({
+            id: r.id,
+            service_time: r.service_time,
+            occurred: r.occurred,
+            no_show_type: r.no_show_type,
+            created_at: r.created_at,
+            enteredByName: r.entered_by_profile?.name ?? null,
+            goalCount: (r.session_goals || []).length,
+          }))
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId, date]);
 
   async function loadData() {
     const [{ data: student }, { data: goalsData }] = await Promise.all([
@@ -121,6 +169,20 @@ export default function NewSessionPage() {
     if (occurred && !notes.trim()) {
       alert("Please record the materials used and how the session went.");
       return;
+    }
+
+    // A second session on the same day is normal -- a student can be seen
+    // twice, and a make-up often sits beside the session it replaces -- so
+    // only an already-logged session in the SAME slot asks for confirmation.
+    const clashes = matchingSlot(existingOnDate, serviceTime);
+    if (clashes.length > 0) {
+      const lines = clashes.map((c) => `  \u2022 ${describeExisting(c)}${c.enteredByName ? `, entered by ${c.enteredByName}` : ""}`);
+      const ok = confirm(
+        `${studentName} already has a session logged for this date and time:\n\n${lines.join("\n")}\n\n` +
+          "Logging this one will create a second session for that slot, and the day will count double on the minutes totals.\n\n" +
+          "Save it anyway?"
+      );
+      if (!ok) return;
     }
 
     setSaving(true);
@@ -238,6 +300,43 @@ export default function NewSessionPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {existingOnDate.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-amber-900">
+                  {studentName} already has {existingOnDate.length === 1 ? "a session" : `${existingOnDate.length} sessions`} logged for{" "}
+                  {new Date(date + "T00:00:00").toLocaleDateString(undefined, {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {existingOnDate.map((sess) => (
+                    <li key={sess.id} className="text-[13px] text-amber-800">
+                      {describeExisting(sess)}
+                      {sess.enteredByName && (
+                        <span className="text-amber-700/80"> — entered by {sess.enteredByName}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[12px] text-amber-700">
+                  Carry on if this is a second session that day. If you meant to add data to the
+                  one above,{" "}
+                  <a href={`/admin/students/${studentId}`} className="font-semibold underline underline-offset-2 hover:text-amber-900">
+                    open it and edit it
+                  </a>{" "}
+                  instead, so the day isn&apos;t counted twice.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
