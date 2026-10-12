@@ -9,7 +9,6 @@
  */
 
 import {
-  AlignmentType,
   BorderStyle,
   Document,
   HeadingLevel,
@@ -29,6 +28,7 @@ import {
   NO_DATA,
   goalColumnLabel,
   type ReportGoal,
+  type ReportSegment,
   type StudentReport,
 } from "./export-report";
 
@@ -43,7 +43,7 @@ const LETTER_LONG = Math.round(11 * TWIPS_PER_INCH);
 /** Printable width once the page is turned on its side. */
 const CONTENT_WIDTH = LETTER_LONG - MARGIN * 2;
 
-const DATE_WIDTH = 1000;
+const DATE_WIDTH = 1200;
 const ATTENDANCE_WIDTH = 1800;
 const SETTING_WIDTH = 2000;
 const NOTES_WIDTH = 2000;
@@ -52,7 +52,6 @@ const INK = "1F2937";
 const MUTED = "6B7280";
 const HEADER_FILL = "E8EDEC";
 const NO_SHOW_FILL = "FDF6E7";
-const SEPARATOR_FILL = "D9E2E0";
 const GRID = "C9CFCE";
 
 const BODY_SIZE = 18; // half-points -> 9pt
@@ -191,9 +190,8 @@ function goalHeaderCell(goal: ReportGoal, width: number): TableCell {
   });
 }
 
-function sessionTable(report: StudentReport): Table {
-  const w = columnWidths(report.goals.length, report.hasPushIn);
-  const totalColumns = report.goals.length + (report.hasPushIn ? 4 : 3);
+function sessionTable(report: StudentReport, segment: ReportSegment): Table {
+  const w = columnWidths(segment.goals.length, report.hasPushIn);
 
   const rows: TableRow[] = [
     new TableRow({
@@ -207,33 +205,13 @@ function sessionTable(report: StudentReport): Table {
         ...(report.hasPushIn
           ? [cell([text("Setting", { bold: true })], { width: w.setting, fill: HEADER_FILL })]
           : []),
-        ...report.goals.map((g) => goalHeaderCell(g, w.goal)),
+        ...segment.goals.map((g) => goalHeaderCell(g, w.goal)),
         cell([text("Notes", { bold: true })], { width: w.notes, fill: HEADER_FILL }),
       ],
     }),
   ];
 
-  for (const row of report.rows) {
-    if (row.kind === "iep-separator") {
-      rows.push(
-        new TableRow({
-          children: [
-            cell(
-              [
-                new Paragraph({
-                  alignment: AlignmentType.CENTER,
-                  spacing: { before: 0, after: 0 },
-                  children: [new TextRun({ text: row.label, bold: true, size: BODY_SIZE, color: INK })],
-                }),
-              ],
-              { columnSpan: totalColumns, fill: SEPARATOR_FILL }
-            ),
-          ],
-        })
-      );
-      continue;
-    }
-
+  for (const row of segment.rows) {
     // A missed session is tinted so it reads as an exception at a glance,
     // the same way Session History badges it in amber.
     const fill = row.attendance.occurred ? undefined : NO_SHOW_FILL;
@@ -275,6 +253,21 @@ function sessionTable(report: StudentReport): Table {
   });
 }
 
+/** The band naming an IEP and the stretch of dates it covers. */
+function segmentHeading(segment: ReportSegment): Paragraph {
+  const span =
+    segment.firstDate === segment.lastDate
+      ? segment.firstDate
+      : `${segment.firstDate} \u2013 ${segment.lastDate}`;
+  return new Paragraph({
+    spacing: { before: 0, after: 80 },
+    children: [
+      new TextRun({ text: segment.label, bold: true, size: 22, color: INK }),
+      new TextRun({ text: `   ${span}`, size: 18, color: MUTED }),
+    ],
+  });
+}
+
 function studentSection(report: StudentReport): ISectionOptions {
   const name = report.headerFields.find((f) => f.label === "Student")?.value || "";
   const rest = report.headerFields.filter((f) => f.label !== "Student" && f.value !== "");
@@ -300,7 +293,12 @@ function studentSection(report: StudentReport): ISectionOptions {
       }),
       headerTable(rest),
       new Paragraph({ spacing: { before: 0, after: 160 }, children: [] }),
-      sessionTable(report),
+      // One block per IEP, oldest first, each with only its own goals.
+      ...report.segments.flatMap((segment, i) => [
+        ...(i > 0 ? [new Paragraph({ spacing: { before: 0, after: 200 }, children: [] })] : []),
+        segmentHeading(segment),
+        sessionTable(report, segment),
+      ]),
     ],
   };
 }

@@ -115,44 +115,50 @@ export default function ExportPage() {
       const wb = XLSX.utils.book_new();
 
       for (const { student, report } of reports) {
-        const headerRow = [
-          "Date",
-          "Attendance",
-          ...(report.hasPushIn ? ["Setting"] : []),
-          ...report.goals.map(goalColumnLabel),
-          "Notes",
-        ];
-
-        const dataRows: string[][] = report.rows.map((row) => {
-          if (row.kind === "iep-separator") {
-            // Spreadsheets have no merged-cell concept here, so the label
-            // sits in the first column and the rest of the row is padded.
-            return [
-              `\u2500\u2500 ${row.label} \u2500\u2500`,
-              ...Array(headerRow.length - 1).fill(""),
-            ];
+        // One block per IEP: its own heading, its own goal columns, then its
+        // sessions. A student whose IEP did not change has a single block.
+        const blocks: string[][] = [];
+        for (const segment of report.segments) {
+          const span =
+            segment.firstDate === segment.lastDate
+              ? segment.firstDate
+              : `${segment.firstDate} \u2014 ${segment.lastDate}`;
+          blocks.push([`\u2500\u2500 ${segment.label} (${span}) \u2500\u2500`]);
+          blocks.push([
+            "Date",
+            "Attendance",
+            ...(report.hasPushIn ? ["Setting"] : []),
+            ...segment.goals.map(goalColumnLabel),
+            "Notes",
+          ]);
+          for (const row of segment.rows) {
+            blocks.push([
+              row.date,
+              attendanceText(row.attendance),
+              ...(report.hasPushIn ? [row.setting] : []),
+              ...row.goalCells.map((lines) => (lines.length > 0 ? lines.join("\n") : NO_DATA)),
+              row.notes,
+            ]);
           }
-          return [
-            row.date,
-            attendanceText(row.attendance),
-            ...(report.hasPushIn ? [row.setting] : []),
-            ...row.goalCells.map((lines) => (lines.length > 0 ? lines.join("\n") : NO_DATA)),
-            row.notes,
-          ];
-        });
+          blocks.push([]);
+        }
 
         const wsData = [
           ...report.headerFields.map((f) => [`${f.label}: ${f.value}`]),
           [],
-          headerRow,
-          ...dataRows,
+          ...blocks,
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(wsData);
+        // Widths follow the widest block, so the goal columns stay readable
+        // whichever IEP has the most goals.
+        const widestGoals = Math.max(0, ...report.segments.map((seg) => seg.goals.length));
         const settingCol = report.hasPushIn ? 2 : -1;
-        ws["!cols"] = headerRow.map((_, i) => ({
+        const columnCount = widestGoals + (report.hasPushIn ? 4 : 3);
+        ws["!cols"] = Array.from({ length: columnCount }, (_, i) => ({
           wch: i === 0 ? 12 : i === 1 ? 22 : i === settingCol ? 28 : 40,
         }));
+
         // Sheet names are capped at 31 characters by Excel.
         XLSX.utils.book_append_sheet(wb, ws, student.name.slice(0, 31));
       }

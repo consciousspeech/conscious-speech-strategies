@@ -26,35 +26,53 @@ export interface ReportAttendance {
   occurred: boolean;
 }
 
-export type ReportRow =
-  | {
-      kind: "session";
-      /** Locale-formatted date. */
-      date: string;
-      attendance: ReportAttendance;
-      /**
-       * One entry per goal in `StudentReport.goals`, in the same order.
-       * Each is the list of lines for that cell -- a session can hold
-       * several data points for one goal. `[]` means nothing was recorded.
-       */
-      goalCells: string[][];
-      /**
-       * Where the session happened: "Push-in -- Ms. Rivera, Room 214", or
-       * "Pull-out -- Room 134". Empty for a session that did not happen.
-       * Only rendered when the student has push-in sessions in the period.
-       */
-      setting: string;
-      notes: string;
-    }
-  | {
-      kind: "iep-separator";
-      /** e.g. "New IEP starts: 2026-2027" */
-      label: string;
-    };
+export interface ReportRow {
+  /** Locale-formatted date. */
+  date: string;
+  attendance: ReportAttendance;
+  /**
+   * One entry per goal in the SEGMENT this row belongs to, in the same
+   * order. Each is the list of lines for that cell -- a session can hold
+   * several data points for one goal. `[]` means nothing was recorded.
+   */
+  goalCells: string[][];
+  /**
+   * Where the session happened: "Push-in -- Ms. Rivera, Room 214", or
+   * "Pull-out -- Room 134". Empty for a session that did not happen.
+   * Only rendered when the student has push-in sessions in the period.
+   */
+  setting: string;
+  notes: string;
+}
 
-export interface StudentReport {
+/**
+ * One IEP's stretch of the report: its own goals, and only the sessions
+ * logged under it.
+ *
+ * A student whose IEP is rewritten mid-period used to get a single table
+ * carrying every goal from both IEPs, so half of every row was dashes and
+ * the reader had to work out which goals were live when. Each IEP now gets
+ * its own block with only its own goal columns, in date order, so the
+ * report reads as "these goals until here, then these".
+ */
+export interface ReportSegment {
+  /** null for the current IEP. */
+  iepYear: string | null;
+  /** "2025-2026 IEP" or "Current IEP". */
+  label: string;
   goals: ReportGoal[];
   rows: ReportRow[];
+  /** Locale-formatted first and last session dates inside this stretch. */
+  firstDate: string;
+  lastDate: string;
+}
+
+export interface StudentReport {
+  /**
+   * In date order, oldest IEP first. A student whose IEP did not change
+   * during the period has exactly one.
+   */
+  segments: ReportSegment[];
   /** Student / IEP facts for the block above the table. */
   headerFields: { label: string; value: string }[];
   /** e.g. "22 attended (2 make-up), 3 student absent" */
@@ -63,7 +81,8 @@ export interface StudentReport {
    * True when at least one session in the period was push-in. Most students
    * are pull-out throughout, and a column repeating "Pull-out" on every row
    * would cost width that the goal columns need, so the exporters add the
-   * Setting column only for the students it tells you something about.
+   * Setting column only for the students it tells you something about. It is
+   * decided once for the whole report so the blocks keep the same shape.
    */
   hasPushIn: boolean;
 }
@@ -114,6 +133,11 @@ const NO_SHOW_LABELS: Record<string, string> = {
   school_activity: "School activity",
   school_closure: "School closure",
 };
+
+/** The earliest session date in a group, for ordering the IEP blocks. */
+function earliestDate(group: ReportSessionInput[]): string {
+  return group.reduce((min, s) => (s.date < min ? s.date : min), group[0].date);
+}
 
 function localDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString();
@@ -195,55 +219,55 @@ export function buildStudentReport(
   dateTo: string,
   options: BuildReportOptions = {}
 ): StudentReport {
-  // Every distinct goal actually worked on during the period. Matched by
-  // goal.id, not goal_number -- a student can have goals across several IEP
-  // years that share numbers.
-  const goalMap = new Map<string, ReportGoal>();
+  // Group by IEP year rather than by runs of consecutive sessions. Grouping
+  // by key means a session back-dated into the old IEP after the switch
+  // lands in that IEP's block instead of opening a third one.
+  const byIep = new Map<string | null, ReportSessionInput[]>();
   for (const session of sessions) {
-    for (const sg of session.session_goals || []) {
-      const g = sg.goal;
-      if (g && g.id && !goalMap.has(g.id)) goalMap.set(g.id, g);
-    }
+    const key = session.iep_year ?? null;
+    const bucket = byIep.get(key);
+    if (bucket) bucket.push(session);
+    else byIep.set(key, [session]);
   }
-  // Older IEP year first, then goal number. Goals with no year sort last.
-  const goals = Array.from(goalMap.values()).sort((a, b) => {
-    const ay = a.iep_year ?? "";
-    const by = b.iep_year ?? "";
-    if (ay !== by) {
-      if (!ay) return 1;
-      if (!by) return -1;
-      return ay.localeCompare(by);
-    }
-    return (a.goal_number ?? 0) - (b.goal_number ?? 0);
-  });
 
-  // Rows in date order, with a separator wherever the IEP year changes so
-  // the reader can see exactly where the new IEP took effect.
-  const rows: ReportRow[] = [];
-  let prevIepYear: string | null | undefined = undefined;
-  for (const session of sessions) {
-    const iepYear = session.iep_year ?? null;
-    if (prevIepYear !== undefined && prevIepYear !== iepYear) {
-      rows.push({
-        kind: "iep-separator",
-        label: iepYear ? `New IEP starts: ${iepYear}` : "Current IEP",
-      });
-    }
-    prevIepYear = iepYear;
+  const segments: ReportSegment[] = Array.from(byIep.entries())
+    // Oldest stretch first, by when its sessions actually start.
+    .sort((a, b) => earliestDate(a[1]).localeCompare(earliestDate(b[1])))
+    .map(([iepYear, segmentSessions]) => {
+      // Only the goals worked on inside THIS stretch. Matched by goal.id, not
+      // goal_number -- goals from different IEP years share numbers.
+      const goalMap = new Map<string, ReportGoal>();
+      for (const session of segmentSessions) {
+        for (const sg of session.session_goals || []) {
+          const g = sg.goal;
+          if (g && g.id && !goalMap.has(g.id)) goalMap.set(g.id, g);
+        }
+      }
+      const goals = Array.from(goalMap.values()).sort(
+        (a, b) => (a.goal_number ?? 0) - (b.goal_number ?? 0)
+      );
 
-    rows.push({
-      kind: "session",
-      date: localDate(session.date),
-      attendance: attendanceFor(session),
-      goalCells: goals.map((g) =>
-        (session.session_goals || [])
-          .filter((sg) => sg.goal?.id === g.id)
-          .map(dataPointText)
-      ),
-      setting: settingFor(session),
-      notes: (session.notes || "").trim(),
+      const ordered = [...segmentSessions].sort((a, b) => a.date.localeCompare(b.date));
+
+      return {
+        iepYear,
+        label: iepYear ? `${iepYear} IEP` : "Current IEP",
+        goals,
+        firstDate: localDate(ordered[0].date),
+        lastDate: localDate(ordered[ordered.length - 1].date),
+        rows: ordered.map((session) => ({
+          date: localDate(session.date),
+          attendance: attendanceFor(session),
+          goalCells: goals.map((g) =>
+            (session.session_goals || [])
+              .filter((sg) => sg.goal?.id === g.id)
+              .map(dataPointText)
+          ),
+          setting: settingFor(session),
+          notes: (session.notes || "").trim(),
+        })),
+      };
     });
-  }
 
   const tally = {
     attended: 0,
@@ -299,13 +323,18 @@ export function buildStudentReport(
     (s) => s.occurred !== false && s.service_type === "push_in"
   );
 
-  return { goals, rows, headerFields, attendanceSummary, hasPushIn };
+  return { segments, headerFields, attendanceSummary, hasPushIn };
 }
 
-/** Column heading for a goal, e.g. "Goal 2 [IEP 2025-2026]: Produce /s/...". */
+/**
+ * Column heading for a goal, e.g. "Goal 2: Produce /s/ in sentences".
+ *
+ * No IEP year here: every goal column now sits inside a block headed with
+ * the IEP it belongs to, so repeating the year across each column would just
+ * take width away from the wording of the goal.
+ */
 export function goalColumnLabel(goal: ReportGoal): string {
-  const yearLabel = goal.iep_year ? ` [IEP ${goal.iep_year}]` : "";
-  return `Goal ${goal.goal_number}${yearLabel}: ${goal.description}`;
+  return `Goal ${goal.goal_number}: ${goal.description}`;
 }
 
 /** The attendance cell as a single string, for formats without rich cells. */
